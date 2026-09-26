@@ -2,6 +2,7 @@ package com.clubhub.tenancy;
 
 import java.util.Optional;
 import java.util.concurrent.Callable;
+import java.util.function.Supplier;
 
 /**
  * The club schema the current request is working in.
@@ -28,6 +29,10 @@ public final class TenantContext {
 
     public static <T> T callAs(String schema, Callable<T> action) throws Exception {
         return ScopedValue.where(CURRENT_SCHEMA, requireSchema(schema)).call(action::call);
+    }
+
+    public static <T> T supplyAs(String schema, Supplier<T> action) {
+        return ScopedValue.where(CURRENT_SCHEMA, requireSchema(schema)).call(action::get);
     }
 
     private static String requireSchema(String schema) {
