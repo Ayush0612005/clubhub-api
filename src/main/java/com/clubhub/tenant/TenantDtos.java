@@ -1,0 +1,34 @@
+package com.clubhub.tenant;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+
+import java.time.Instant;
+import java.util.UUID;
+
+/** Request/response shapes for the platform tenant API. Entities never leave the service layer. */
+public final class TenantDtos {
+
+    private TenantDtos() {
+    }
+
+    public record CreateTenantRequest(
+            @NotBlank
+            @Pattern(regexp = "^[a-z][a-z0-9_]{2,39}$",
+                    message = "must be 3-40 chars: lowercase letters, digits or _, starting with a letter")
+            String slug,
+
+            @NotBlank
+            @Size(max = 120)
+            String name) {
+    }
+
+    public record TenantResponse(UUID id, String slug, String name, TenantStatus status, Instant createdAt) {
+
+        static TenantResponse from(Tenant tenant) {
+            return new TenantResponse(tenant.getId(), tenant.getSlug(), tenant.getName(),
+                    tenant.getStatus(), tenant.getCreatedAt());
+        }
+    }
+}
