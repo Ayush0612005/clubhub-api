@@ -1,5 +1,8 @@
 package com.clubhub.tenant;
 
+import com.clubhub.club.ClubProfile;
+import com.clubhub.club.ClubProfileRepository;
+import com.clubhub.tenancy.TenantContext;
 import org.springframework.stereotype.Service;
 
 /**
@@ -14,10 +17,14 @@ public class TenantProvisioningService {
 
     private final TenantRepository tenantRepository;
     private final TenantSchemaMigrator schemaMigrator;
+    private final ClubProfileRepository clubProfileRepository;
 
-    public TenantProvisioningService(TenantRepository tenantRepository, TenantSchemaMigrator schemaMigrator) {
+    public TenantProvisioningService(TenantRepository tenantRepository,
+                                     TenantSchemaMigrator schemaMigrator,
+                                     ClubProfileRepository clubProfileRepository) {
         this.tenantRepository = tenantRepository;
         this.schemaMigrator = schemaMigrator;
+        this.clubProfileRepository = clubProfileRepository;
     }
 
     public Tenant provision(String slug, String name) {
@@ -32,6 +39,8 @@ public class TenantProvisioningService {
 
         Tenant tenant = new Tenant(slug, name);
         schemaMigrator.migrate(tenant.getSchemaName());
+        // seed the club's own data, written through the normal tenant-routed JPA path
+        TenantContext.runAs(tenant.getSchemaName(), () -> clubProfileRepository.save(new ClubProfile(name)));
         // unique constraint still guards the race where two requests pass existsBySlug together
         return tenantRepository.saveAndFlush(tenant);
     }

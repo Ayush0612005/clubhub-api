@@ -31,14 +31,13 @@ class TenantRoutingTest {
     void createTwoClubs() {
         provisioningService.provision("routing_alpha", "Alpha Club");
         provisioningService.provision("routing_beta", "Beta Club");
-        jdbc.update("INSERT INTO club_routing_alpha.club_profile (display_name) VALUES ('Alpha profile')");
-        jdbc.update("INSERT INTO club_routing_beta.club_profile (display_name) VALUES ('Beta profile')");
+        // provisioning seeds one club_profile row per club schema
     }
 
     @Test
     void sameQueryReturnsOnlyTheCurrentClubsRows() {
-        assertThat(profilesVisibleTo("club_routing_alpha")).containsExactly("Alpha profile");
-        assertThat(profilesVisibleTo("club_routing_beta")).containsExactly("Beta profile");
+        assertThat(profilesVisibleTo("club_routing_alpha")).containsExactly("Alpha Club");
+        assertThat(profilesVisibleTo("club_routing_beta")).containsExactly("Beta Club");
     }
 
     @Test

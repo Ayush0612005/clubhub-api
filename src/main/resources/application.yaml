@@ -8,7 +8,10 @@ spring:
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: validate
+      # Flyway owns every schema. "validate" can't be used: Hibernate would check tenant
+      # tables (club_profile...) against "public", where they deliberately don't exist.
+      # Entity/table mismatches are caught by the Testcontainers integration tests instead.
+      ddl-auto: none
   flyway:
     schemas: public
     locations: classpath:db/migration/public

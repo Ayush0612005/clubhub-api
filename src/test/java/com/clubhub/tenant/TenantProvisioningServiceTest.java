@@ -33,6 +33,15 @@ class TenantProvisioningServiceTest {
     }
 
     @Test
+    void seedsDefaultProfileInsideTheClubSchema() {
+        provisioningService.provision("photo_club", "Photography Club");
+
+        String displayName = jdbc.queryForObject(
+                "SELECT display_name FROM club_photo_club.club_profile", String.class);
+        assertThat(displayName).isEqualTo("Photography Club");
+    }
+
+    @Test
     void rejectsDuplicateSlug() {
         provisioningService.provision("dance_club", "Dance Club");
 
