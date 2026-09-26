@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: clubhub-postgres
+    environment:
+      POSTGRES_DB: clubhub
+      POSTGRES_USER: clubhub
+      POSTGRES_PASSWORD: clubhub
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql   # PG 18 image: mount the parent dir, NOT .../data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clubhub -d clubhub"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

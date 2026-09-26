@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: clubhub-api
+  datasource:
+    url: jdbc:postgresql://localhost:5432/clubhub
+    username: clubhub
+    password: clubhub
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    schemas: public
+    locations: classpath:db/migration/public
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
