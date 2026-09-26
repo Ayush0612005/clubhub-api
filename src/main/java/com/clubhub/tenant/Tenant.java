@@ -18,6 +18,10 @@ public class Tenant {
 
     public static final String SCHEMA_PREFIX = "club_";
 
+    /** Must match ck_tenants_slug in V1__create_tenants.sql. */
+    public static final java.util.regex.Pattern SLUG_PATTERN =
+            java.util.regex.Pattern.compile("^[a-z][a-z0-9_]{2,39}$");
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
