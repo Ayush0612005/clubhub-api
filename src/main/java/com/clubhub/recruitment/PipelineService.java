@@ -1,5 +1,6 @@
 package com.clubhub.recruitment;
 
+import com.clubhub.audit.AuditService;
 import com.clubhub.common.ConflictException;
 import com.clubhub.common.NotFoundException;
 import com.clubhub.common.PageResponse;
@@ -42,10 +43,13 @@ public class PipelineService {
     private final MembershipRepository memberships;
     private final DomainEventPublisher events;
     private final CurrentClub currentClub;
+    private final AuditService audit;
 
     public PipelineService(DriveRepository drives, ApplicationRepository applications,
                            StatusChangeRepository statusChanges, UserRepository users,
-                           MembershipRepository memberships, DomainEventPublisher events, CurrentClub currentClub) {
+                           MembershipRepository memberships, DomainEventPublisher events, CurrentClub currentClub,
+                           AuditService audit) {
+        this.audit = audit;
         this.drives = drives;
         this.applications = applications;
         this.statusChanges = statusChanges;
@@ -96,6 +100,8 @@ public class PipelineService {
         }
         statusChanges.save(new ApplicationStatusChange(applicationId, previous, target, reviewerId,
                 note == null || note.isBlank() ? null : note.strip()));
+        audit.record("APPLICATION_MOVED", "APPLICATION", applicationId,
+                Map.of("from", previous.name(), "to", target.name()));
 
         if (target == ApplicationStatus.SELECTED
                 && memberships.findByUserIdAndTenantId(application.getApplicantUserId(), tenantId).isEmpty()) {

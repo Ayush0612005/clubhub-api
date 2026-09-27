@@ -1,5 +1,6 @@
 package com.clubhub.membership;
 
+import com.clubhub.audit.AuditService;
 import com.clubhub.common.ConflictException;
 import com.clubhub.common.NotFoundException;
 import com.clubhub.membership.MemberDtos.MemberResponse;
@@ -25,10 +26,12 @@ public class MembershipService {
 
     private final MembershipRepository memberships;
     private final UserRepository users;
+    private final AuditService audit;
 
-    public MembershipService(MembershipRepository memberships, UserRepository users) {
+    public MembershipService(MembershipRepository memberships, UserRepository users, AuditService audit) {
         this.memberships = memberships;
         this.users = users;
+        this.audit = audit;
     }
 
     @Transactional(readOnly = true)
@@ -50,20 +53,25 @@ public class MembershipService {
         if (memberships.findByUserIdAndTenantId(user.getId(), tenantId).isPresent()) {
             throw new ConflictException("Already a member of this club");
         }
+        Membership saved;
         try {
-            return toResponse(memberships.saveAndFlush(new Membership(user.getId(), tenantId, role)), user);
+            saved = memberships.saveAndFlush(new Membership(user.getId(), tenantId, role));
         } catch (DataIntegrityViolationException e) {
             throw new ConflictException("Already a member of this club"); // concurrent add, caught by the unique key
         }
+        audit.record("MEMBER_ADDED", "USER", user.getId(), Map.of("email", user.getEmail(), "role", role.name()));
+        return toResponse(saved, user);
     }
 
     @Transactional
     public MemberResponse changeRole(UUID tenantId, UUID userId, ClubRole newRole) {
         Membership membership = find(tenantId, userId);
-        if (membership.getRole() == ClubRole.CLUB_ADMIN && newRole != ClubRole.CLUB_ADMIN) {
+        ClubRole previous = membership.getRole();
+        if (previous == ClubRole.CLUB_ADMIN && newRole != ClubRole.CLUB_ADMIN) {
             requireAnotherAdmin(tenantId);
         }
         membership.changeRole(newRole);
+        audit.record("MEMBER_ROLE_CHANGED", "USER", userId, Map.of("from", previous.name(), "to", newRole.name()));
         return toResponse(membership, users.findById(userId).orElseThrow());
     }
 
@@ -74,6 +82,7 @@ public class MembershipService {
             requireAnotherAdmin(tenantId);
         }
         memberships.delete(membership);
+        audit.record("MEMBER_REMOVED", "USER", userId, Map.of("role", membership.getRole().name()));
     }
 
     /** A club with zero admins could never be managed again: refuse to demote/remove the last one. */

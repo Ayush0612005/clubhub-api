@@ -1,10 +1,13 @@
 package com.clubhub.club;
 
+import com.clubhub.audit.AuditService;
 import com.clubhub.club.ClubProfileDtos.ClubProfileResponse;
 import com.clubhub.club.ClubProfileDtos.UpdateClubProfileRequest;
 import com.clubhub.common.NotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Map;
 
 /**
  * Plain single-tenant looking code: no schema, no tenant id anywhere.
@@ -14,9 +17,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class ClubProfileService {
 
     private final ClubProfileRepository repository;
+    private final AuditService audit;
 
-    public ClubProfileService(ClubProfileRepository repository) {
+    public ClubProfileService(ClubProfileRepository repository, AuditService audit) {
         this.repository = repository;
+        this.audit = audit;
     }
 
     @Transactional(readOnly = true)
@@ -28,6 +33,8 @@ public class ClubProfileService {
     public ClubProfileResponse update(UpdateClubProfileRequest request) {
         ClubProfile profile = load();
         profile.update(request.displayName(), request.description(), request.contactEmail());
+        audit.record("CLUB_PROFILE_UPDATED", "CLUB_PROFILE", profile.getId(),
+                Map.of("displayName", request.displayName()));
         return ClubProfileResponse.from(profile); // dirty checking flushes on commit
     }
 

@@ -1,5 +1,6 @@
 package com.clubhub.certificate;
 
+import com.clubhub.audit.AuditService;
 import com.clubhub.certificate.CertificateDtos.CertificateView;
 import com.clubhub.certificate.CertificateDtos.IssueResult;
 import com.clubhub.certificate.CertificateDtos.Verification;
@@ -46,12 +47,14 @@ public class CertificateService {
     private final CertificatePdfRenderer renderer;
     private final String publicBaseUrl;
     private final DomainEventPublisher domainEvents;
+    private final AuditService audit;
 
     public CertificateService(CertificateRepository certificates, EventRepository events,
                               AttendanceRepository attendance, UserRepository users, TenantRepository tenants,
-                              CertificatePdfRenderer renderer, DomainEventPublisher domainEvents,
+                              CertificatePdfRenderer renderer, DomainEventPublisher domainEvents, AuditService audit,
                               @Value("${clubhub.public-base-url}") String publicBaseUrl) {
         this.domainEvents = domainEvents;
+        this.audit = audit;
         this.certificates = certificates;
         this.events = events;
         this.attendance = attendance;
@@ -90,6 +93,7 @@ public class CertificateService {
                         byId.get(userId).getFullName(), description, issuerId))
                 .toList();
         certificates.saveAll(fresh);
+        audit.record("CERTIFICATES_ISSUED", "EVENT", eventId, Map.of("issued", fresh.size()));
 
         DomainEvent.Club club = DomainEvent.Club.of(currentClub());
         fresh.forEach(c -> domainEvents.publish(new DomainEvent.CertificateIssued(UUID.randomUUID(), club,
@@ -131,6 +135,8 @@ public class CertificateService {
         } catch (IllegalStateException e) {
             throw new ConflictException(e.getMessage());
         }
+        audit.record("CERTIFICATE_REVOKED", "CERTIFICATE", certificateId,
+                Map.of("recipient", certificate.getRecipientName()));
         return view(certificate, currentClub().getSlug());
     }
 
