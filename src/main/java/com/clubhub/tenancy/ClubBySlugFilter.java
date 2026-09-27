@@ -1,5 +1,6 @@
 package com.clubhub.tenancy;
 
+import com.clubhub.ratelimit.RateLimitGuard;
 import com.clubhub.tenant.Tenant;
 import com.clubhub.tenant.TenantRepository;
 import jakarta.servlet.FilterChain;
@@ -29,9 +30,11 @@ public class ClubBySlugFilter extends OncePerRequestFilter {
     public static final String PUBLIC_CLUB_PREFIX = "/api/clubs/";
 
     private final TenantRepository tenantRepository;
+    private final RateLimitGuard rateLimits;
 
-    public ClubBySlugFilter(TenantRepository tenantRepository) {
+    public ClubBySlugFilter(TenantRepository tenantRepository, RateLimitGuard rateLimits) {
         this.tenantRepository = tenantRepository;
+        this.rateLimits = rateLimits;
     }
 
     @Override
@@ -53,6 +56,9 @@ public class ClubBySlugFilter extends OncePerRequestFilter {
                 : Optional.empty();
         if (tenant.isEmpty()) {
             TenantFilter.writeProblem(response, HttpStatus.NOT_FOUND, "Club not found");
+            return;
+        }
+        if (!rateLimits.allowClubRequest(tenant.get(), response)) {
             return;
         }
 

@@ -31,6 +31,7 @@
 		<zxing.version>3.5.3</zxing.version>
 		<openpdf.version>3.0.5</openpdf.version>
 		<aws-sdk.version>2.55.6</aws-sdk.version>
+		<bucket4j.version>8.20.0</bucket4j.version>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
@@ -120,6 +121,17 @@
 			<artifactId>spring-boot-starter-kafka</artifactId>
 		</dependency>
 		<dependency>
+			<!-- Redis (Lettuce): shared state for rate limiting across instances -->
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-redis</artifactId>
+		</dependency>
+		<dependency>
+			<!-- token-bucket rate limiting with buckets stored in Redis -->
+			<groupId>com.bucket4j</groupId>
+			<artifactId>bucket4j_jdk17-lettuce</artifactId>
+			<version>${bucket4j.version}</version>
+		</dependency>
+		<dependency>
 			<!-- live notifications over STOMP (WebSocket) -->
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-websocket</artifactId>
@@ -182,6 +194,11 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-kafka-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-redis-test</artifactId>
 			<scope>test</scope>
 		</dependency>
 		<dependency>

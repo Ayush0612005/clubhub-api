@@ -2,6 +2,7 @@ package com.clubhub.tenancy;
 
 import com.clubhub.membership.Membership;
 import com.clubhub.membership.MembershipRepository;
+import com.clubhub.ratelimit.RateLimitGuard;
 import com.clubhub.security.JwtTokenService;
 import com.clubhub.tenant.Tenant;
 import com.clubhub.tenant.TenantRepository;
@@ -30,7 +31,8 @@ import java.util.UUID;
  *
  * The membership is re-checked on every request instead of trusting the token alone: removing a
  * member takes effect immediately rather than after their access token expires. It costs one
- * indexed lookup per request; Phase 7 puts a Redis cache in front of it.
+ * indexed lookup per request (primary-key and unique-index hits), which is cheap next to the
+ * request itself. Each club request also counts against the club's rate limit (Redis).
  */
 @Component
 public class TenantFilter extends OncePerRequestFilter {
@@ -39,10 +41,13 @@ public class TenantFilter extends OncePerRequestFilter {
 
     private final TenantRepository tenantRepository;
     private final MembershipRepository membershipRepository;
+    private final RateLimitGuard rateLimits;
 
-    public TenantFilter(TenantRepository tenantRepository, MembershipRepository membershipRepository) {
+    public TenantFilter(TenantRepository tenantRepository, MembershipRepository membershipRepository,
+                        RateLimitGuard rateLimits) {
         this.tenantRepository = tenantRepository;
         this.membershipRepository = membershipRepository;
+        this.rateLimits = rateLimits;
     }
 
     @Override
@@ -79,6 +84,9 @@ public class TenantFilter extends OncePerRequestFilter {
         }
         if (!tenant.get().isActive()) {
             writeProblem(response, HttpStatus.FORBIDDEN, "Club is suspended");
+            return;
+        }
+        if (!rateLimits.allowClubRequest(tenant.get(), response)) {
             return;
         }
 

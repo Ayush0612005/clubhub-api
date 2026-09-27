@@ -15,6 +15,13 @@ spring:
   flyway:
     schemas: public
     locations: classpath:db/migration/public
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      # Redis only holds rate-limit buckets; all repositories are JPA
+      repositories:
+        enabled: false
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
@@ -33,6 +40,11 @@ clubhub:
   plans:
     # plan given to newly created clubs (FREE or PRO)
     default-plan: ${CLUBHUB_DEFAULT_PLAN:FREE}
+  rate-limits:
+    # per client IP on login/register/refresh
+    auth-per-minute: ${CLUBHUB_AUTH_RATE_LIMIT:20}
+    # per club requests come from its plan (FREE 300/min, PRO 3000/min); >0 here overrides for all clubs
+    club-per-minute-override: 0
   mail:
     # "log" (default: nothing is sent, only logged) or "ses" (Amazon SES, production)
     provider: ${CLUBHUB_MAIL_PROVIDER:log}
