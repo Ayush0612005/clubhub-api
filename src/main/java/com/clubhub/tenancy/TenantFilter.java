@@ -108,7 +108,7 @@ public class TenantFilter extends OncePerRequestFilter {
         }
     }
 
-    private static void writeProblem(HttpServletResponse response, HttpStatus status, String detail) throws IOException {
+    static void writeProblem(HttpServletResponse response, HttpStatus status, String detail) throws IOException {
         response.setStatus(status.value());
         response.setContentType("application/problem+json");
         // detail is always a fixed server-side string, never echoed client input
