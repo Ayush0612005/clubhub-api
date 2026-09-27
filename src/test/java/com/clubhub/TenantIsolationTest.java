@@ -7,11 +7,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -26,6 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@WithMockUser // endpoints require authentication now; real token flow is covered by SecurityRulesTest
 class TenantIsolationTest {
 
     private static final String TENANT = "X-Tenant-ID";
@@ -83,6 +86,8 @@ class TenantIsolationTest {
 
     private void createClub(String slug, String name) throws Exception {
         mvc.perform(post("/api/platform/tenants")
+                        // called from @BeforeAll, where @WithMockUser does not apply: authenticate this request explicitly
+                        .with(user("setup-admin"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"slug":"%s","name":"%s"}""".formatted(slug, name)))

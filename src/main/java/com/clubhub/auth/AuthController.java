@@ -4,13 +4,19 @@ import com.clubhub.auth.AuthDtos.LoginRequest;
 import com.clubhub.auth.AuthDtos.RegisterRequest;
 import com.clubhub.auth.AuthDtos.TokenResponse;
 import com.clubhub.auth.AuthDtos.UserResponse;
+import com.clubhub.security.JwtTokenService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -31,5 +37,14 @@ public class AuthController {
     @PostMapping("/login")
     public TokenResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
+    }
+
+    /** Who does this token belong to? Read straight from the verified JWT, no DB hit. */
+    @GetMapping("/me")
+    public Map<String, Object> me(@AuthenticationPrincipal Jwt jwt) {
+        return Map.of(
+                "id", jwt.getSubject(),
+                "email", jwt.getClaimAsString(JwtTokenService.CLAIM_EMAIL),
+                "roles", jwt.getClaimAsStringList(JwtTokenService.CLAIM_ROLES));
     }
 }
