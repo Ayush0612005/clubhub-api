@@ -31,6 +31,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login",
                                 "/api/auth/refresh", "/api/auth/logout").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        // certificate verification links are printed on PDFs and opened by recruiters
+                        .requestMatchers(HttpMethod.GET, "/api/verify/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         // platform administration: only the ROLE_PLATFORM_ADMIN authority (from the "roles" claim)
                         .requestMatchers("/api/platform/**").hasRole("PLATFORM_ADMIN")

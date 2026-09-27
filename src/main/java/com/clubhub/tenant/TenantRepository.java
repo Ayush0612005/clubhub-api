@@ -12,6 +12,9 @@ public interface TenantRepository extends JpaRepository<Tenant, UUID> {
 
     boolean existsBySlug(String slug);
 
+    /** Which club the current TenantContext schema belongs to (e.g. for its name and slug). */
+    Optional<Tenant> findBySchemaName(String schemaName);
+
     // used at startup to migrate every active club schema (step 1.3)
     List<Tenant> findAllByStatus(TenantStatus status);
 }
