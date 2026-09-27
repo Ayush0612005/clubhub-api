@@ -12,6 +12,7 @@ import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.util.backoff.FixedBackOff;
 
 @Configuration(proxyBeanMethods = false)
+@OnKafkaTransport
 public class KafkaConfig {
 
     /**

@@ -39,11 +39,6 @@ services:
         sync: false
       - key: REDIS_URL
         sync: false               # Upstash: rediss://default:<password>@<host>:6379
-      - key: KAFKA_BOOTSTRAP_SERVERS
-        sync: false               # Aiven: <service>.aivencloud.com:<port>
-      - key: KAFKA_ACCESS_KEY
-        sync: false               # Aiven: contents of service.key
-      - key: KAFKA_ACCESS_CERT
-        sync: false               # Aiven: contents of service.cert
-      - key: KAFKA_CA_CERT
-        sync: false               # Aiven: contents of ca.pem
+      # Domain events are delivered in-process (no broker on the free tier). To use a hosted Kafka,
+      # set SPRING_PROFILES_ACTIVE=cloud,cloud-kafka and add KAFKA_BOOTSTRAP_SERVERS,
+      # KAFKA_ACCESS_KEY, KAFKA_ACCESS_CERT and KAFKA_CA_CERT (see application-cloud-kafka.yaml).

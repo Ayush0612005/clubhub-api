@@ -232,8 +232,9 @@ published, and Prometheus scrapes a separate management port on the private netw
 
 ### Deploy (free, no credit card)
 
-Vercel (web) + Render (API, Docker) + Neon (PostgreSQL) + Upstash (Redis) + Aiven (Kafka), all on free
-tiers. Step-by-step guide: **[docs/DEPLOY.md](docs/DEPLOY.md)** · Render blueprint: [`render.yaml`](render.yaml)
+Vercel (web) + Render (API, Docker) + Neon (PostgreSQL) + Upstash (Redis), all on free tiers. Without a
+free broker, the cloud profile delivers domain events in-process behind the same publisher interface
+(`clubhub.events.transport`); Kafka stays the default locally, in Docker and in tests. Step-by-step guide: **[docs/DEPLOY.md](docs/DEPLOY.md)** · Render blueprint: [`render.yaml`](render.yaml)
 · cloud settings: [`application-cloud.yaml`](src/main/resources/application-cloud.yaml).
 
 ### Try it
@@ -348,5 +349,5 @@ limits, per-club and per-IP rate limits, and audit rows rolling back with a reje
 - [x] **Phase 6** Notifications: Kafka domain events → inbox, STOMP WebSocket push, SES email (`v0.6.0`)
 - [x] **Phase 7** FREE/PRO plans + feature overrides, Redis/Bucket4j rate limits, audit log, OpenAPI docs (`v0.7.0`)
 - [x] **Phase 8** React frontend: student app, club workspace with kanban + camera door scanner, live notifications (`v0.8.0`)
-- [x] **Phase 9** Docker images, full-stack compose, Prometheus + Grafana, free-tier deployment (Vercel + Render + Neon + Upstash + Aiven) (`v0.9.0`)
+- [x] **Phase 9** Docker images, full-stack compose, Prometheus + Grafana, free-tier deployment (Vercel + Render + Neon + Upstash), pluggable event transport (`v0.9.0`)
 - [ ] Onboard SRM clubs (target: April 2027)

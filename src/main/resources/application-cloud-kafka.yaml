@@ -1,0 +1,23 @@
+# Profile "cloud-kafka": add to "cloud" when a hosted Kafka is available (e.g. Aiven):
+# SPRING_PROFILES_ACTIVE=cloud,cloud-kafka. Switches domain events back to Kafka with mutual TLS.
+
+spring:
+  autoconfigure:
+    exclude: []                   # undo the "cloud" exclusion: Kafka clients are wanted again
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    security:
+      protocol: SSL               # Aiven: mutual TLS with the service's access key/cert
+    ssl:
+      key-store-type: PEM
+      key-store-certificate-chain: ${KAFKA_ACCESS_CERT}
+      key-store-key: ${KAFKA_ACCESS_KEY}
+      trust-store-type: PEM
+      trust-store-certificates: ${KAFKA_CA_CERT}
+
+clubhub:
+  events:
+    transport: kafka
+  kafka:
+    partitions: 2                 # Aiven free tier: max 2 partitions per topic
+    replicas: ${KAFKA_REPLICAS:0} # 0 = broker default

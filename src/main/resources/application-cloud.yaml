@@ -1,5 +1,7 @@
-# Profile "cloud": free managed services (Render + Neon + Upstash + Aiven), enabled with
+# Profile "cloud": free managed services (Render + Neon + Upstash), enabled with
 # SPRING_PROFILES_ACTIVE=cloud. Every secret comes from an environment variable; see docs/DEPLOY.md.
+# Domain events are delivered in-process (no broker). With a hosted Kafka available, also activate
+# the "cloud-kafka" profile: SPRING_PROFILES_ACTIVE=cloud,cloud-kafka
 
 server:
   port: ${PORT:8080}              # Render injects PORT
@@ -9,6 +11,11 @@ server:
       max: 40                     # small instance: fewer threads, less stack memory
 
 spring:
+  autoconfigure:
+    # no broker on the free tier: don't create Kafka clients at all
+    exclude:
+      - org.springframework.boot.kafka.autoconfigure.KafkaAutoConfiguration
+      - org.springframework.boot.kafka.autoconfigure.metrics.KafkaMetricsAutoConfiguration
   datasource:
     # Neon: use the DIRECT endpoint (not "-pooler"): tenants switch search_path per connection,
     # which a transaction-mode pooler would leak between clients. ?sslmode=require
@@ -21,21 +28,10 @@ spring:
   data:
     redis:
       url: ${REDIS_URL}           # Upstash: rediss://default:<password>@<host>:6379 (TLS)
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
-    security:
-      protocol: SSL               # Aiven: mutual TLS with the service's access key/cert
-    ssl:
-      key-store-type: PEM
-      key-store-certificate-chain: ${KAFKA_ACCESS_CERT}
-      key-store-key: ${KAFKA_ACCESS_KEY}
-      trust-store-type: PEM
-      trust-store-certificates: ${KAFKA_CA_CERT}
 
 clubhub:
-  kafka:
-    partitions: 2                 # Aiven free tier: max 2 partitions per topic
-    replicas: ${KAFKA_REPLICAS:0}   # 0 = broker default
+  events:
+    transport: in-process         # see InProcessEventRelay; "kafka" in the cloud-kafka profile
 
 management:
   endpoints:
