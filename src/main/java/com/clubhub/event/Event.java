@@ -53,6 +53,9 @@ public class Event {
     @Column(name = "created_by", nullable = false, updatable = false)
     private UUID createdBy;
 
+    @Column(name = "poster_file_id")
+    private UUID posterFileId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -109,6 +112,11 @@ public class Event {
                 && !now.isAfter(endsAt);
     }
 
+    public void attachPoster(UUID fileId) {
+        this.posterFileId = fileId;
+        this.updatedAt = Instant.now();
+    }
+
     public boolean isVisibleTo(boolean member) {
         return status != EventStatus.DRAFT && (member || visibility == EventVisibility.PUBLIC);
     }
@@ -123,5 +131,6 @@ public class Event {
     public EventVisibility getVisibility() { return visibility; }
     public EventStatus getStatus() { return status; }
     public UUID getCreatedBy() { return createdBy; }
+    public UUID getPosterFileId() { return posterFileId; }
     public Instant getCreatedAt() { return createdAt; }
 }

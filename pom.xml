@@ -30,8 +30,33 @@
 		<java.version>25</java.version>
 		<zxing.version>3.5.3</zxing.version>
 		<openpdf.version>3.0.5</openpdf.version>
+		<aws-sdk.version>2.55.6</aws-sdk.version>
 	</properties>
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<!-- one version for every AWS SDK module (S3 now, SES in Phase 6) -->
+				<groupId>software.amazon.awssdk</groupId>
+				<artifactId>bom</artifactId>
+				<version>${aws-sdk.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 	<dependencies>
+		<dependency>
+			<!-- S3 client + presigner (pre-signed upload/download URLs) -->
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>s3</artifactId>
+			<exclusions>
+				<!-- we only use the synchronous client (Apache HTTP); no Netty needed -->
+				<exclusion>
+					<groupId>software.amazon.awssdk</groupId>
+					<artifactId>netty-nio-client</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-actuator</artifactId>
@@ -146,10 +171,23 @@
 				</configuration>
 			</plugin>
 			<plugin>
+				<!-- exposes ${org.mockito:mockito-core:jar} (path of the jar) for the agent below -->
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<executions>
+					<execution>
+						<goals>
+							<goal>properties</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
 				<configuration>
-					<argLine>-Duser.timezone=UTC</argLine>
+					<!-- Mockito as a Java agent: JDK 21+ warns (and will block) dynamic agent self-attach -->
+					<argLine>-Duser.timezone=UTC -javaagent:${org.mockito:mockito-core:jar}</argLine>
 				</configuration>
 			</plugin>
 		</plugins>
