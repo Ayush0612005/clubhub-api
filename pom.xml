@@ -29,6 +29,7 @@
 	<properties>
 		<java.version>25</java.version>
 		<zxing.version>3.5.3</zxing.version>
+		<openpdf.version>3.0.5</openpdf.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -45,6 +46,12 @@
 			<groupId>com.google.zxing</groupId>
 			<artifactId>javase</artifactId>
 			<version>${zxing.version}</version>
+		</dependency>
+		<dependency>
+			<!-- PDF certificates (LGPL/MPL fork of iText 4) -->
+			<groupId>com.github.librepdf</groupId>
+			<artifactId>openpdf</artifactId>
+			<version>${openpdf.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

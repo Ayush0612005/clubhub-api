@@ -17,6 +17,8 @@ spring:
     locations: classpath:db/migration/public
 
 clubhub:
+  # Absolute base URL printed on certificates (verification link + QR). Production: https://api.<domain>
+  public-base-url: ${CLUBHUB_PUBLIC_BASE_URL:http://localhost:8080}
   jwt:
     # HS256 key, >= 32 bytes. The default is for local dev/tests ONLY; production sets JWT_SECRET.
     secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-0123456789}

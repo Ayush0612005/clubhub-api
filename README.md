@@ -97,10 +97,10 @@ POST /api/auth/refresh        → rotates the refresh token; reuse of an old one
 ## Tech stack
 
 Java 25 · Spring Boot 4.1 (Web MVC, Data JPA, Security, OAuth2 Resource Server, Validation, Actuator) ·
-Hibernate 7 · PostgreSQL 18 · Flyway · Nimbus JOSE (JWT) · JUnit 5 · Testcontainers · Docker Compose ·
+Hibernate 7 · PostgreSQL 18 · Flyway · Nimbus JOSE (JWT) · ZXing (QR) · JUnit 5 · Testcontainers · Docker Compose ·
 GitHub Actions
 
-Planned: Redis + Bucket4j, Kafka, WebSocket (STOMP), AWS S3/SES, ZXing, OpenPDF, springdoc-openapi,
+Planned: Redis + Bucket4j, Kafka, WebSocket (STOMP), AWS S3/SES, OpenPDF, springdoc-openapi,
 Micrometer/Prometheus/Grafana, React 19 frontend.
 
 ## Run locally
