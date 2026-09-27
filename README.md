@@ -1,18 +1,37 @@
-# ClubHub API
+# ClubHub
 
 [![CI](https://github.com/Ayush0612005/clubhub-api/actions/workflows/ci.yml/badge.svg)](https://github.com/Ayush0612005/clubhub-api/actions/workflows/ci.yml)
 ![Java 25](https://img.shields.io/badge/Java-25-orange)
 ![Spring Boot 4.1](https://img.shields.io/badge/Spring%20Boot-4.1-6DB33F)
 ![PostgreSQL 18](https://img.shields.io/badge/PostgreSQL-18-336791)
 
-Multi-tenant SaaS backend for college clubs at SRM KTR. Every club is a tenant with its own
+Multi-tenant SaaS for college clubs at SRM KTR. Every club is a tenant with its own
 isolated PostgreSQL schema: recruitment, events with QR attendance, certificates and
-notifications, all running on one shared deployment.
+notifications, all running on one shared deployment, with a React web app on top.
 
-> **Status:** Phases 1–7 complete (tenancy core, auth + RBAC, recruitment, events + QR attendance,
+> **Status:** Phases 1–8 complete (tenancy core, auth + RBAC, recruitment, events + QR attendance,
 > S3 files + PDF certificates, notifications via Kafka → WebSocket + email, plans + rate limits +
-> audit log). The React frontend is next.
+> audit log, React frontend). Containerised deployment is next.
 > See [Roadmap](#roadmap).
+
+## Web app
+
+`frontend/` is a React 19 + TypeScript + Vite + Tailwind v4 + TanStack Query client
+([details](frontend/README.md)):
+
+- **Students:** explore clubs, register for events and get a signed QR ticket, apply to recruitment
+  drives with custom questions, follow applications, download certificates, a live notification inbox.
+- **Club core team:** dashboard, event lifecycle (draft → publish → cancel), a **camera door scanner**
+  that decodes tickets in the browser, walk-in check-in, one-click certificate issuing, a
+  **recruitment kanban** (Applied → Shortlisted → Interview → Selected), member roles, audit log,
+  plan usage meters.
+- **Platform admin:** create clubs (each gets its own schema) and change plans.
+- **Public:** landing page and a certificate verification page (the target of the QR on every PDF).
+
+Session handling: access token in memory + localStorage, **one shared refresh promise** so a burst of
+401s triggers a single `/refresh`, and club-scoped tokens obtained lazily per club via `switch-club`.
+Live updates arrive over STOMP and invalidate the relevant TanStack queries instead of polling.
+The door scanner (ZXing) is code-split so the main bundle stays around 130 kB gzipped.
 
 ## Architecture
 
@@ -169,7 +188,9 @@ Hibernate 7 · PostgreSQL 18 · Flyway · Nimbus JOSE (JWT) · Kafka 4 (KRaft) �
 AWS SDK v2 (S3, SES) · Redis 8 + Bucket4j · springdoc-openapi · JUnit 5 · Mockito · Testcontainers ·
 Docker Compose · GitHub Actions
 
-Planned: Micrometer/Prometheus/Grafana, React 19 frontend.
+Web: React 19 · TypeScript 6 · Vite 8 · Tailwind CSS 4 · TanStack Query 5 · React Router · STOMP.js · ZXing (browser)
+
+Planned: Micrometer/Prometheus/Grafana.
 
 ## Run locally
 
@@ -184,14 +205,19 @@ docker compose up -d                                  # PostgreSQL 18 :5432, Kaf
 |---|---|---|
 | `JWT_SECRET` | HS256 signing key, >= 32 bytes | dev-only value (never use in production) |
 | `CLUBHUB_ADMIN_EMAIL` | existing account promoted to `PLATFORM_ADMIN` at startup | none |
-| `CLUBHUB_PUBLIC_BASE_URL` | base URL printed on certificates (verification link/QR) | `http://localhost:8080` |
 | `CLUBHUB_S3_BUCKET` · `AWS_REGION` | S3 bucket and region for uploads | `clubhub-dev` · `ap-south-1` |
 | `AWS_ACCESS_KEY_ID` · `AWS_SECRET_ACCESS_KEY` | S3/SES credentials locally (EC2 uses its instance role) | AWS default chain |
 | `KAFKA_BOOTSTRAP_SERVERS` | Kafka brokers | `localhost:9092` |
 | `CLUBHUB_MAIL_PROVIDER` · `CLUBHUB_MAIL_FROM` | `ses` to really send email; `log` only logs | `log` |
-| `CLUBHUB_APP_URL` · `CLUBHUB_ALLOWED_ORIGINS` | frontend URL (email links) and WebSocket origins | `http://localhost:5173` |
+| `CLUBHUB_APP_URL` · `CLUBHUB_ALLOWED_ORIGINS` | frontend URL (email links, certificate verify QR) and WebSocket origins | `http://localhost:5173` |
 
 Running from an IDE: add `-Duser.timezone=UTC` to the VM options.
+
+Web app (Node 24):
+
+```bash
+cd frontend && npm install && npm run dev             # http://localhost:5173 (proxies /api and /ws to :8080)
+```
 
 ### Try it
 
@@ -304,5 +330,5 @@ limits, per-club and per-IP rate limits, and audit rows rolling back with a reje
 - [x] **Phase 5** S3 direct uploads with pre-signed URLs, PDF certificates with public verification (`v0.5.0`)
 - [x] **Phase 6** Notifications: Kafka domain events → inbox, STOMP WebSocket push, SES email (`v0.6.0`)
 - [x] **Phase 7** FREE/PRO plans + feature overrides, Redis/Bucket4j rate limits, audit log, OpenAPI docs (`v0.7.0`)
-- [ ] **Phase 8** React frontend
+- [x] **Phase 8** React frontend: student app, club workspace with kanban + camera door scanner, live notifications (`v0.8.0`)
 - [ ] **Phase 9** Deploy on AWS (EC2 + RDS) and onboard SRM clubs

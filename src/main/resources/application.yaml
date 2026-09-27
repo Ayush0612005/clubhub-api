@@ -35,7 +35,7 @@ clubhub:
   web:
     # browser origins allowed to open the /ws WebSocket (the React dev server by default)
     allowed-origins: ${CLUBHUB_ALLOWED_ORIGINS:http://localhost:5173}
-    # frontend base URL used for links inside emails
+    # frontend base URL used for links in emails and the certificate verification QR
     app-url: ${CLUBHUB_APP_URL:http://localhost:5173}
   plans:
     # plan given to newly created clubs (FREE or PRO)
@@ -49,8 +49,6 @@ clubhub:
     # "log" (default: nothing is sent, only logged) or "ses" (Amazon SES, production)
     provider: ${CLUBHUB_MAIL_PROVIDER:log}
     from: ${CLUBHUB_MAIL_FROM:ClubHub <no-reply@clubhub.local>}
-  # Absolute base URL printed on certificates (verification link + QR). Production: https://api.<domain>
-  public-base-url: ${CLUBHUB_PUBLIC_BASE_URL:http://localhost:8080}
   storage:
     bucket: ${CLUBHUB_S3_BUCKET:clubhub-dev}
     region: ${AWS_REGION:ap-south-1}
@@ -76,4 +74,17 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        # prometheus is unauthenticated: the reverse proxy never routes /actuator, only the
+        # private Docker network (Prometheus) can reach it
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true # /actuator/health/liveness and /readiness for container health checks
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      # histogram buckets so Grafana can compute p95/p99 latency per endpoint
+      percentiles-histogram:
+        http.server.requests: true

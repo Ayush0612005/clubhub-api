@@ -7,6 +7,7 @@ on:
 
 jobs:
   build:
+    name: API (build + tests)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -17,3 +18,20 @@ jobs:
           cache: maven
       - name: Build and test
         run: ./mvnw -B verify
+
+  frontend:
+    name: Web (lint + typecheck + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
