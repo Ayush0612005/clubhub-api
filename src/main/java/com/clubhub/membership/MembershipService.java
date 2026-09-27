@@ -4,6 +4,7 @@ import com.clubhub.audit.AuditService;
 import com.clubhub.common.ConflictException;
 import com.clubhub.common.NotFoundException;
 import com.clubhub.membership.MemberDtos.MemberResponse;
+import com.clubhub.plan.PlanService;
 import com.clubhub.user.User;
 import com.clubhub.user.UserRepository;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -27,11 +28,14 @@ public class MembershipService {
     private final MembershipRepository memberships;
     private final UserRepository users;
     private final AuditService audit;
+    private final PlanService plans;
 
-    public MembershipService(MembershipRepository memberships, UserRepository users, AuditService audit) {
+    public MembershipService(MembershipRepository memberships, UserRepository users, AuditService audit,
+                             PlanService plans) {
         this.memberships = memberships;
         this.users = users;
         this.audit = audit;
+        this.plans = plans;
     }
 
     @Transactional(readOnly = true)
@@ -53,6 +57,7 @@ public class MembershipService {
         if (memberships.findByUserIdAndTenantId(user.getId(), tenantId).isPresent()) {
             throw new ConflictException("Already a member of this club");
         }
+        plans.requireMemberRoom(tenantId);
         Membership saved;
         try {
             saved = memberships.saveAndFlush(new Membership(user.getId(), tenantId, role));

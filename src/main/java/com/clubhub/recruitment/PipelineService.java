@@ -9,6 +9,7 @@ import com.clubhub.membership.Membership;
 import com.clubhub.membership.MembershipRepository;
 import com.clubhub.notification.DomainEvent;
 import com.clubhub.notification.DomainEventPublisher;
+import com.clubhub.plan.PlanService;
 import com.clubhub.recruitment.PipelineDtos.AnswerView;
 import com.clubhub.recruitment.PipelineDtos.Applicant;
 import com.clubhub.recruitment.PipelineDtos.ApplicationDetail;
@@ -44,12 +45,14 @@ public class PipelineService {
     private final DomainEventPublisher events;
     private final CurrentClub currentClub;
     private final AuditService audit;
+    private final PlanService plans;
 
     public PipelineService(DriveRepository drives, ApplicationRepository applications,
                            StatusChangeRepository statusChanges, UserRepository users,
                            MembershipRepository memberships, DomainEventPublisher events, CurrentClub currentClub,
-                           AuditService audit) {
+                           AuditService audit, PlanService plans) {
         this.audit = audit;
+        this.plans = plans;
         this.drives = drives;
         this.applications = applications;
         this.statusChanges = statusChanges;
@@ -105,6 +108,7 @@ public class PipelineService {
 
         if (target == ApplicationStatus.SELECTED
                 && memberships.findByUserIdAndTenantId(application.getApplicantUserId(), tenantId).isEmpty()) {
+            plans.requireMemberRoom(tenantId); // a full club can't select: the whole move rolls back
             memberships.save(new Membership(application.getApplicantUserId(), tenantId, ClubRole.MEMBER));
         }
         String driveTitle = drives.findById(application.getDriveId()).map(RecruitmentDrive::getTitle).orElse("");

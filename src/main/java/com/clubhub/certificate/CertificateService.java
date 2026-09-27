@@ -13,6 +13,8 @@ import com.clubhub.event.EventRepository;
 import com.clubhub.event.EventStatus;
 import com.clubhub.notification.DomainEvent;
 import com.clubhub.notification.DomainEventPublisher;
+import com.clubhub.plan.Feature;
+import com.clubhub.plan.PlanService;
 import com.clubhub.tenancy.TenantContext;
 import com.clubhub.tenant.Tenant;
 import com.clubhub.tenant.TenantRepository;
@@ -48,11 +50,13 @@ public class CertificateService {
     private final String publicBaseUrl;
     private final DomainEventPublisher domainEvents;
     private final AuditService audit;
+    private final PlanService plans;
 
     public CertificateService(CertificateRepository certificates, EventRepository events,
                               AttendanceRepository attendance, UserRepository users, TenantRepository tenants,
                               CertificatePdfRenderer renderer, DomainEventPublisher domainEvents, AuditService audit,
-                              @Value("${clubhub.public-base-url}") String publicBaseUrl) {
+                              PlanService plans, @Value("${clubhub.public-base-url}") String publicBaseUrl) {
+        this.plans = plans;
         this.domainEvents = domainEvents;
         this.audit = audit;
         this.certificates = certificates;
@@ -71,6 +75,7 @@ public class CertificateService {
      */
     @Transactional
     public IssueResult issueForEvent(Long eventId, UUID issuerId) {
+        plans.requireFeature(Feature.CERTIFICATES);
         Event event = events.findById(eventId).orElseThrow(() -> new NotFoundException("Event not found"));
         if (event.getStatus() == EventStatus.CANCELLED) {
             throw new ConflictException("Cannot issue certificates for a cancelled event");

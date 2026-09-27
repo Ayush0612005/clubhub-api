@@ -2,6 +2,7 @@ package com.clubhub.common;
 
 import com.clubhub.auth.AuthExceptions;
 import com.clubhub.event.TicketService;
+import com.clubhub.plan.PlanExceptions;
 import com.clubhub.tenant.TenantAlreadyExistsException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -61,6 +62,21 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(TicketService.InvalidTicketException.class)
     ProblemDetail handleInvalidTicket(TicketService.InvalidTicketException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
+
+    /** 409 + a machine-readable code so the frontend can show an "upgrade" prompt. */
+    @ExceptionHandler(PlanExceptions.PlanLimitExceededException.class)
+    ProblemDetail handlePlanLimit(PlanExceptions.PlanLimitExceededException e) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+        problem.setProperty("code", "PLAN_LIMIT");
+        return problem;
+    }
+
+    @ExceptionHandler(PlanExceptions.FeatureNotAvailableException.class)
+    ProblemDetail handleFeatureNotAvailable(PlanExceptions.FeatureNotAvailableException e) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, e.getMessage());
+        problem.setProperty("code", "FEATURE_NOT_IN_PLAN");
+        return problem;
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

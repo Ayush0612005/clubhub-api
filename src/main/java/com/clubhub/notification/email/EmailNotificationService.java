@@ -4,6 +4,8 @@ import com.clubhub.notification.DomainEvent;
 import com.clubhub.notification.DomainEvent.ApplicationStatusChanged;
 import com.clubhub.notification.DomainEvent.CertificateIssued;
 import com.clubhub.notification.DomainEvent.EventPublished;
+import com.clubhub.plan.Feature;
+import com.clubhub.plan.PlanService;
 import com.clubhub.user.User;
 import com.clubhub.user.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,9 +30,11 @@ public class EmailNotificationService {
     private final EmailLogRepository emailLog;
     private final UserRepository users;
     private final String appUrl;
+    private final PlanService plans;
 
     public EmailNotificationService(EmailSender sender, EmailLogRepository emailLog, UserRepository users,
-                                    @Value("${clubhub.web.app-url}") String appUrl) {
+                                    PlanService plans, @Value("${clubhub.web.app-url}") String appUrl) {
+        this.plans = plans;
         this.sender = sender;
         this.emailLog = emailLog;
         this.users = users;
@@ -47,6 +51,9 @@ public class EmailNotificationService {
         Optional<Email> email = compose(event);
         if (email.isEmpty() || emailLog.existsBySourceEventIdAndUserId(event.id(), email.get().userId())) {
             return false;
+        }
+        if (!plans.isEnabled(event.club().tenantId(), Feature.EMAIL_NOTIFICATIONS)) {
+            return false; // the in-app notification still exists; email is a plan feature
         }
         Optional<User> recipient = users.findById(email.get().userId());
         if (recipient.isEmpty()) {

@@ -16,4 +16,6 @@ public interface MembershipRepository extends JpaRepository<Membership, UUID> {
     List<Membership> findAllByTenantId(UUID tenantId);
 
     long countByTenantIdAndRole(UUID tenantId, ClubRole role);
+
+    long countByTenantId(UUID tenantId);
 }

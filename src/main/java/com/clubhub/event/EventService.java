@@ -10,6 +10,7 @@ import com.clubhub.event.EventDtos.RegistrationResponse;
 import com.clubhub.event.EventDtos.TicketResponse;
 import com.clubhub.notification.DomainEvent;
 import com.clubhub.notification.DomainEventPublisher;
+import com.clubhub.plan.PlanService;
 import com.clubhub.tenancy.TenantContext;
 import com.clubhub.tenant.CurrentClub;
 import com.clubhub.user.User;
@@ -41,11 +42,14 @@ public class EventService {
     private final DomainEventPublisher domainEvents;
     private final CurrentClub currentClub;
     private final AuditService audit;
+    private final PlanService plans;
 
     public EventService(EventRepository events, EventRegistrationRepository registrations,
                         AttendanceRepository attendance, UserRepository users, TicketService tickets,
-                        DomainEventPublisher domainEvents, CurrentClub currentClub, AuditService audit) {
+                        DomainEventPublisher domainEvents, CurrentClub currentClub, AuditService audit,
+                        PlanService plans) {
         this.audit = audit;
+        this.plans = plans;
         this.events = events;
         this.registrations = registrations;
         this.attendance = attendance;
@@ -71,6 +75,8 @@ public class EventService {
 
     @Transactional
     public EventResponse create(CreateEventRequest r, UUID createdBy) {
+        plans.requireRoom(PlanService.Limit.UPCOMING_EVENTS,
+                events.countByEndsAtAfterAndStatusNot(Instant.now(), EventStatus.CANCELLED));
         Event event = events.save(new Event(r.title().strip(), r.description(), r.venue().strip(),
                 r.startsAt(), r.endsAt(), r.capacity(), r.visibility(), createdBy));
         audit.record("EVENT_CREATED", "EVENT", event.getId(), Map.of("title", event.getTitle()));
