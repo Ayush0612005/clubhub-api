@@ -9,7 +9,7 @@ Multi-tenant SaaS backend for college clubs at SRM KTR. Every club is a tenant w
 isolated PostgreSQL schema: recruitment, events with QR attendance, certificates and
 notifications, all running on one shared deployment.
 
-> **Status:** Phase 1 (tenancy core) and Phase 2 (auth + RBAC) complete. Recruitment is next.
+> **Status:** Phases 1–3 complete (tenancy core, auth + RBAC, recruitment). Events + QR attendance is next.
 > See [Roadmap](#roadmap).
 
 ## Architecture
@@ -20,12 +20,30 @@ own schema with identical tables.
 ```
 PostgreSQL "clubhub"
 ├── public            tenants, users, memberships, refresh_tokens   (platform + identity)
-├── club_coding_club  club_profile, ...                             (Coding Club only)
-└── club_robotics     club_profile, ...                             (Robotics only)
+├── club_coding_club  club_profile, recruitment_drives, applications, ...   (Coding Club only)
+└── club_robotics     club_profile, recruitment_drives, applications, ...   (Robotics only)
 ```
 
 A student has **one account** and can belong to many clubs with a **different role in each**
 (`memberships`: user × club × `CLUB_ADMIN | CORE | MEMBER`).
+
+### Recruitment
+
+```
+Club side (/api/club/recruitment, CORE+)        Student side (/api/clubs/{slug}/recruitment, any logged-in user)
+  create drive (DRAFT) with questions             browse OPEN drives, read questions
+  DRAFT → OPEN → CLOSED (→ OPEN again)            apply once per drive, answers validated
+  review: APPLIED → SHORTLISTED → INTERVIEW       see "my applications", withdraw
+          → SELECTED / REJECTED
+  SELECTED ⇒ MEMBER membership, same transaction
+```
+
+- Both lifecycles are explicit state machines on the entities; illegal moves return `409`.
+- Every pipeline move is appended to `application_status_changes` (who, when, from → to, note).
+- `applications.applicant_user_id` is a **cross-schema foreign key** to `public.users`, so the
+  database itself guarantees applicants are real accounts.
+- Non-members reach a club through `ClubBySlugFilter`, which binds only the club's schema and never
+  a member identity, so member-only endpoints stay closed to them.
 
 ### Authentication and club access
 
@@ -120,6 +138,18 @@ curl localhost:8080/api/club/profile -H "Authorization: Bearer $CLUB_TOKEN"
 | `POST /api/club/members` | `CLUB_ADMIN` | Add a registered user with a role |
 | `PATCH /api/club/members/{userId}` | `CLUB_ADMIN` | Change role (last admin protected) |
 | `DELETE /api/club/members/{userId}` | `CLUB_ADMIN` | Remove member (last admin protected) |
+| `GET /api/club/recruitment/drives` | club member | List drives (drafts only for `CORE`+) |
+| `GET /api/club/recruitment/drives/{id}` | club member | Drive with questions |
+| `POST /api/club/recruitment/drives` | `CORE`+ | Create a drive with questions (DRAFT) |
+| `PATCH /api/club/recruitment/drives/{id}/status` | `CORE`+ | Open / close / reopen |
+| `GET /api/club/recruitment/drives/{id}/applications` | `CORE`+ | Applicants, paged, `?status=` filter |
+| `GET /api/club/recruitment/applications/{id}` | `CORE`+ | Answers + status history |
+| `POST /api/club/recruitment/applications/{id}/transitions` | `CORE`+ | Move in the pipeline (SELECTED adds a MEMBER) |
+| `GET /api/clubs/{slug}/recruitment/drives` | any user | Open drives of a club |
+| `GET /api/clubs/{slug}/recruitment/drives/{id}` | any user | Open drive with questions |
+| `POST /api/clubs/{slug}/recruitment/drives/{id}/applications` | any user | Apply |
+| `GET /api/clubs/{slug}/recruitment/applications/mine` | any user | My applications to this club |
+| `POST /api/clubs/{slug}/recruitment/applications/{id}/withdraw` | applicant | Withdraw own application |
 
 Errors use RFC 9457 Problem Details (`application/problem+json`). 401 = not authenticated,
 403 = authenticated but not allowed.
@@ -130,14 +160,15 @@ Errors use RFC 9457 Problem Details (`application/problem+json`). 401 = not auth
 ./mvnw verify    # requires Docker; spins up a throwaway PostgreSQL 18 container
 ```
 
-84 tests, including: cross-club isolation over HTTP (`TenantIsolationTest`), forged / expired /
-`alg:none` tokens, refresh-token replay detection, live role changes, and last-admin protection.
+108 tests, including: cross-club isolation over HTTP (`TenantIsolationTest`), forged / expired /
+`alg:none` tokens, refresh-token replay detection, live role changes, last-admin protection,
+recruitment state machines, answer validation, and selection → membership end to end.
 
 ## Roadmap
 
 - [x] **Phase 1** Tenancy core: schema-per-tenant, provisioning, per-tenant migrations, request routing (`v0.1.0`)
 - [x] **Phase 2** Auth + RBAC: JWT + rotating refresh tokens, club switching, platform and club roles, member management (`v0.2.0`)
-- [ ] **Phase 3** Recruitment pipeline
+- [x] **Phase 3** Recruitment: drives with questions, student applications, audited review pipeline, auto-membership on selection (`v0.3.0`)
 - [ ] **Phase 4** Events + QR attendance
 - [ ] **Phase 5** S3 file uploads + PDF certificates
 - [ ] **Phase 6** Notifications: Kafka → WebSocket + email
