@@ -3,45 +3,56 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * ClubHub design tokens. Warm "paper" neutrals, one confident accent (signal orange),
- * a deep ink for text, and three status colours. Everything else is derived from these.
+ * ClubHub design tokens. Dark-first "blueprint" look: near-black canvas, zinc neutrals, hairline
+ * borders, one accent (violet) and three status colours. Light theme reuses the same names.
+ * Inter for text, Geist Mono for numbers, labels and eyebrows.
  */
 @theme {
-  --font-display: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
-  --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, monospace;
 
-  --color-paper: #f7f5f0;
-  --color-paper-2: #efece4;
+  /* light theme values (dark overrides below) */
+  --color-paper: #f8fafc;
+  --color-paper-2: #eef1f5;
   --color-surface: #ffffff;
-  --color-line: #e4e0d6;
-  --color-ink: #16181d;
-  --color-ink-2: #3a3d45;
-  --color-muted: #6b6f76;
+  --color-line: #3c495826;
+  --color-ink: #091426;
+  --color-ink-2: #333e4d;
+  --color-muted: #5b6573;
 
-  --color-signal: #ff5a1f;
-  --color-signal-600: #e84a12;
-  --color-signal-50: #fff1ea;
+  --color-signal: #7c3aed;
+  --color-signal-600: #6d28d9;
+  --color-signal-50: #f1eafe;
+  --color-signal-ink: #6d28d9; /* accent used as text (eyebrows, links) */
+  --color-on-signal: #ffffff;
 
-  --color-forest: #1f6f4a;
-  --color-forest-50: #e8f4ee;
-  --color-cobalt: #2f54eb;
-  --color-cobalt-50: #ecf0ff;
-  --color-berry: #c8264f;
+  --color-forest: #0f8a4f;
+  --color-forest-50: #e3f5ec;
+  --color-cobalt: #1d5bf0;
+  --color-cobalt-50: #e8effe;
+  --color-berry: #dc2650;
   --color-berry-50: #fdecf0;
-  --color-amber: #b7791f;
-  --color-amber-50: #fdf5e6;
+  --color-amber: #c24e00;
+  --color-amber-50: #fff0e3;
 
-  --radius-card: 1.25rem;
-  --shadow-soft: 0 1px 0 rgb(22 24 29 / 0.04), 0 8px 24px -12px rgb(22 24 29 / 0.18);
-  --shadow-lift: 0 1px 0 rgb(22 24 29 / 0.05), 0 18px 40px -18px rgb(22 24 29 / 0.35);
+  --radius-sm: 0.3rem;
+  --radius-md: 0.4rem;
+  --radius-lg: 0.45rem;
+  --radius-xl: 0.55rem;
+  --radius-2xl: 0.7rem;
+  --radius-3xl: 0.9rem;
+  --radius-card: 0.7rem;
 
-  --animate-rise: rise 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  --animate-marquee: marquee 38s linear infinite;
+  --shadow-soft: 0 1px 2px rgb(9 20 38 / 0.06);
+  --shadow-lift: 0 1px 2px rgb(9 20 38 / 0.08), 0 16px 40px -20px rgb(9 20 38 / 0.35);
+
+  --animate-rise: rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-marquee: marquee 40s linear infinite;
 }
 
 @keyframes rise {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -50,22 +61,34 @@
   to { transform: translateX(-50%); }
 }
 
-/* Dark theme: same names, night values. Toggled with the .dark class on <html>. */
+/* Dark theme (the default). Toggled with the .dark class on <html>. */
 .dark {
-  /* native scrollbars, date pickers and selects follow the theme too */
-  color-scheme: dark;
-  --color-paper: #0f1012;
-  --color-paper-2: #17191d;
-  --color-surface: #1b1d22;
-  --color-line: #2a2d34;
-  --color-ink: #f2f0ea;
-  --color-ink-2: #c9c6be;
-  --color-muted: #8d9098;
-  --color-signal-50: #2c1a12;
-  --color-forest-50: #13261d;
-  --color-cobalt-50: #161c33;
-  --color-berry-50: #2b1219;
-  --color-amber-50: #2a2112;
+  color-scheme: dark; /* native scrollbars, date pickers and selects follow the theme */
+  --color-paper: #08090d;
+  --color-paper-2: #131419;
+  --color-surface: #0d0e13;
+  --color-line: #ffffff1a;
+  --color-ink: #fafafa;
+  --color-ink-2: #d4d4d8;
+  --color-muted: #9f9fa9;
+
+  --color-signal: #8b5cf6;
+  --color-signal-600: #7c3aed;
+  --color-signal-50: #8b5cf61f;
+  --color-signal-ink: #a78bfa;
+  --color-on-signal: #ffffff;
+
+  --color-forest: #34d399;
+  --color-forest-50: #34d3991a;
+  --color-cobalt: #60a5fa;
+  --color-cobalt-50: #60a5fa1a;
+  --color-berry: #fb7185;
+  --color-berry-50: #fb71851a;
+  --color-amber: #fb923c;
+  --color-amber-50: #fb923c1a;
+
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-lift: 0 1px 2px rgb(0 0 0 / 0.5), 0 20px 50px -24px rgb(0 0 0 / 0.9);
 }
 
 @layer base {
@@ -79,30 +102,71 @@
 
   ::selection {
     background: var(--color-signal);
-    color: white;
+    color: var(--color-on-signal);
   }
 
   h1, h2, h3 {
     font-family: var(--font-display);
-    letter-spacing: -0.02em;
+    letter-spacing: -0.035em;
   }
 
   :focus-visible {
     outline: 2px solid var(--color-signal);
     outline-offset: 2px;
-    border-radius: 6px;
+    border-radius: 4px;
   }
 }
 
 @layer components {
-  /* subtle dotted "graph paper" backdrop used on hero and auth screens */
+  /* faint blueprint grid behind hero and auth screens */
   .bg-dots {
-    background-image: radial-gradient(circle at 1px 1px, rgb(22 24 29 / 0.08) 1px, transparent 0);
-    background-size: 22px 22px;
+    background-image:
+      linear-gradient(to right, var(--color-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--color-line) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse at 50% 0%, black 30%, transparent 75%);
   }
 
-  .dark .bg-dots {
-    background-image: radial-gradient(circle at 1px 1px, rgb(255 255 255 / 0.06) 1px, transparent 0);
+  /* the page column: a centred frame with dashed side rails */
+  .rails {
+    width: 100%;
+    max-width: 1240px;
+    margin-inline: auto;
+    padding-inline: 1.25rem;
+    border-inline: 1px dashed var(--color-line);
+  }
+  @media (min-width: 1024px) {
+    .rails { padding-inline: 4rem; }
+  }
+
+  /* diagonal hatched band between sections */
+  .hatch {
+    height: 40px;
+    border-block: 1px solid var(--color-line);
+    background-image: repeating-linear-gradient(-45deg, var(--color-line) 0 1px, transparent 1px 9px);
+  }
+
+  /* "02 / PROVEN IMPACT" style section label */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-signal-ink);
+  }
+
+  /* soft light rays from the top of the page */
+  .glow {
+    background:
+      radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--color-signal) 22%, transparent), transparent 55%),
+      radial-gradient(circle at 85% 5%, color-mix(in srgb, #3b82f6 16%, transparent), transparent 60%);
+  }
+
+  /* glossy highlight on solid buttons */
+  .gloss {
+    background-image: linear-gradient(to bottom, rgb(255 255 255 / 0.22), rgb(255 255 255 / 0.04) 50%, transparent);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.35);
   }
 
   /* ticket perforation: two half-circle notches and a dashed tear line */

@@ -92,7 +92,7 @@ export default function Settings() {
                 </li>
               ))}
             </ul>
-            {plan.data.plan === 'FREE' && <p className="rounded-xl bg-signal-50 p-3 text-[13px] text-signal-600">Need more? Ask the ClubHub team to move your club to PRO.</p>}
+            {plan.data.plan === 'FREE' && <p className="rounded-xl bg-signal-50 p-3 text-[13px] text-signal-ink">Need more? Ask the ClubHub team to move your club to PRO.</p>}
           </div>
         )}
       </Card>
