@@ -1,5 +1,6 @@
 package com.clubhub.common;
 
+import com.clubhub.auth.AuthExceptions;
 import com.clubhub.tenant.TenantAlreadyExistsException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -17,6 +18,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(TenantAlreadyExistsException.class)
     ProblemDetail handleConflict(TenantAlreadyExistsException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+    }
+
+    @ExceptionHandler(AuthExceptions.EmailAlreadyUsedException.class)
+    ProblemDetail handleEmailTaken(AuthExceptions.EmailAlreadyUsedException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+    }
+
+    @ExceptionHandler(AuthExceptions.InvalidCredentialsException.class)
+    ProblemDetail handleBadCredentials(AuthExceptions.InvalidCredentialsException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, e.getMessage());
     }
 
     @ExceptionHandler(NotFoundException.class)
