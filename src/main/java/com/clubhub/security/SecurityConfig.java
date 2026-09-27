@@ -30,6 +30,8 @@ public class SecurityConfig {
                                 "/api/auth/refresh", "/api/auth/logout").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/error").permitAll()
+                        // platform administration: only the ROLE_PLATFORM_ADMIN authority (from the "roles" claim)
+                        .requestMatchers("/api/platform/**").hasRole("PLATFORM_ADMIN")
                         .anyRequest().authenticated())
                 // Validates "Authorization: Bearer <jwt>" with our JwtDecoder (signature, exp, issuer)
                 .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))

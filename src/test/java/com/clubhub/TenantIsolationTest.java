@@ -15,7 +15,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.UUID;
 
-import static com.clubhub.support.TestAuth.asUser;
+import static com.clubhub.support.TestAuth.asPlatformAdmin;
 import static com.clubhub.support.TestAuth.inClub;
 import static com.clubhub.support.TestAuth.newUserId;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -113,7 +113,7 @@ class TenantIsolationTest {
     }
 
     private void createClub(UUID ownerId, String slug, String name) throws Exception {
-        mvc.perform(post("/api/platform/tenants").with(asUser(ownerId))
+        mvc.perform(post("/api/platform/tenants").with(asPlatformAdmin(ownerId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"slug":"%s","name":"%s"}""".formatted(slug, name)))

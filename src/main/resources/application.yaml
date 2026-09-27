@@ -23,6 +23,9 @@ clubhub:
     issuer: clubhub-api
     access-token-ttl: 15m
     refresh-token-ttl: 14d
+  bootstrap:
+    # Existing account to promote to PLATFORM_ADMIN at startup (empty = do nothing)
+    platform-admin-email: ${CLUBHUB_ADMIN_EMAIL:}
 
 management:
   endpoints:

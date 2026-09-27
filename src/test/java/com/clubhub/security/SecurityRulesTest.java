@@ -68,5 +68,9 @@ class SecurityRulesTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value("sec.flow@srmist.edu.in"))
                 .andExpect(jsonPath("$.roles[0]").value("USER"));
+
+        // authenticated is not the same as authorized: a USER token can't reach platform admin endpoints
+        mvc.perform(get("/api/platform/tenants").header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
     }
 }

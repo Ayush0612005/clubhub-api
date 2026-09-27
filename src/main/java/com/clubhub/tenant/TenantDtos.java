@@ -1,5 +1,6 @@
 package com.clubhub.tenant;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -21,7 +22,11 @@ public final class TenantDtos {
 
             @NotBlank
             @Size(max = 120)
-            String name) {
+            String name,
+
+            // optional: the registered user who will run the club (becomes CLUB_ADMIN); defaults to the caller
+            @Email
+            String ownerEmail) {
     }
 
     public record TenantResponse(UUID id, String slug, String name, TenantStatus status, Instant createdAt) {

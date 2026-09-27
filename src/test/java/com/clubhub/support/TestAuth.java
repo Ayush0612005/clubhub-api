@@ -32,6 +32,13 @@ public final class TestAuth {
                 .authorities(new SimpleGrantedAuthority("ROLE_USER"));
     }
 
+    /** Authenticated PLATFORM_ADMIN with no active club. */
+    public static RequestPostProcessor asPlatformAdmin(UUID userId) {
+        return jwt().jwt(j -> j.subject(userId.toString())
+                        .claim(JwtTokenService.CLAIM_ROLES, List.of("PLATFORM_ADMIN")))
+                .authorities(new SimpleGrantedAuthority("ROLE_PLATFORM_ADMIN"));
+    }
+
     /** Authenticated user whose token is scoped to one club. Membership is still checked server-side. */
     public static RequestPostProcessor inClub(UUID userId, UUID tenantId, String clubSlug) {
         return jwt().jwt(j -> j.subject(userId.toString())

@@ -1,6 +1,8 @@
 package com.clubhub.auth;
 
 import com.clubhub.TestcontainersConfiguration;
+import com.clubhub.user.User;
+import com.clubhub.user.UserRepository;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -34,14 +36,16 @@ class SwitchClubTest {
 
     @Autowired MockMvc mvc;
     @Autowired JwtDecoder jwtDecoder;
+    @Autowired UserRepository users;
 
     String ownerLogin;     // full login response of the club's creator
     String outsiderLogin;  // full login response of a user with no membership
 
     @BeforeAll
     void setUp() throws Exception {
-        ownerLogin = registerAndLogin();
-        outsiderLogin = registerAndLogin();
+        // real platform admin: registered normally, then promoted (as PlatformAdminBootstrap would do)
+        ownerLogin = registerAndLogin(true);
+        outsiderLogin = registerAndLogin(false);
         mvc.perform(post("/api/platform/tenants").header("Authorization", bearer(ownerLogin))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"slug\":\"" + CLUB + "\",\"name\":\"Switch Club\"}"))
@@ -112,11 +116,16 @@ class SwitchClubTest {
 
     // ---------- helpers ----------
 
-    private String registerAndLogin() throws Exception {
+    private String registerAndLogin(boolean platformAdmin) throws Exception {
         String email = "switch." + UUID.randomUUID() + "@srmist.edu.in";
         mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("""
                 {"email":"%s","password":"switch-pass-1","fullName":"Switch Test"}""".formatted(email)))
                 .andExpect(status().isCreated());
+        if (platformAdmin) {
+            User user = users.findByEmail(email).orElseThrow();
+            user.promoteToPlatformAdmin();
+            users.save(user);
+        }
         String login = login(email);
         // keep the email next to the tokens so tests can log in again
         return login.substring(0, login.length() - 1) + ",\"email\":\"" + email + "\"}";

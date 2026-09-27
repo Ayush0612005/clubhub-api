@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
+import static com.clubhub.support.TestAuth.asPlatformAdmin;
 import static com.clubhub.support.TestAuth.asUser;
 import static com.clubhub.support.TestAuth.inClub;
 import static com.clubhub.support.TestAuth.newUserId;
@@ -107,7 +108,7 @@ class TenantFilterTest {
 
     @Test
     void platformEndpointsAreNotTenantScoped() throws Exception {
-        mvc.perform(get("/api/platform/_probe").with(inClub(memberId, activeClubId, "filter_active")))
+        mvc.perform(get("/api/platform/_probe").with(asPlatformAdmin(memberId)))
                 .andExpect(status().isOk())
                 .andExpect(content().string("none"));
     }

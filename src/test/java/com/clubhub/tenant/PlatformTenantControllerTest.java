@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.UUID;
 
+import static com.clubhub.support.TestAuth.asPlatformAdmin;
 import static com.clubhub.support.TestAuth.asUser;
 import static com.clubhub.support.TestAuth.newUserId;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -46,7 +47,7 @@ class PlatformTenantControllerTest {
 
     @Test
     void createsClubAndReturns201() throws Exception {
-        mvc.perform(post("/api/platform/tenants").with(asUser(creatorId))
+        mvc.perform(post("/api/platform/tenants").with(asPlatformAdmin(creatorId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"slug":"api_chess_club","name":"Chess Club"}"""))
@@ -56,14 +57,14 @@ class PlatformTenantControllerTest {
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.id").isNotEmpty());
 
-        mvc.perform(get("/api/platform/tenants").with(asUser(creatorId)))
+        mvc.perform(get("/api/platform/tenants").with(asPlatformAdmin(creatorId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[*].slug", hasItem("api_chess_club")));
     }
 
     @Test
     void creatorBecomesClubAdmin() throws Exception {
-        mvc.perform(post("/api/platform/tenants").with(asUser(creatorId))
+        mvc.perform(post("/api/platform/tenants").with(asPlatformAdmin(creatorId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"slug":"api_owned_club","name":"Owned Club"}"""))
@@ -78,19 +79,62 @@ class PlatformTenantControllerTest {
     void duplicateSlugIs409() throws Exception {
         String body = """
                 {"slug":"api_quiz_club","name":"Quiz Club"}""";
-        mvc.perform(post("/api/platform/tenants").with(asUser(creatorId))
+        mvc.perform(post("/api/platform/tenants").with(asPlatformAdmin(creatorId))
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated());
 
-        mvc.perform(post("/api/platform/tenants").with(asUser(creatorId))
+        mvc.perform(post("/api/platform/tenants").with(asPlatformAdmin(creatorId))
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.detail").value("Club with slug 'api_quiz_club' already exists"));
     }
 
     @Test
+    void regularUserCannotCreateOrListClubs() throws Exception {
+        UUID student = newUserId(users);
+        mvc.perform(post("/api/platform/tenants").with(asUser(student))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"slug":"api_sneaky_club","name":"Sneaky"}"""))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/platform/tenants").with(asUser(student)))
+                .andExpect(status().isForbidden());
+
+        assertThat(tenants.findBySlug("api_sneaky_club")).isEmpty();
+    }
+
+    @Test
+    void adminCanHandTheClubToANamedOwner() throws Exception {
+        UUID clubLead = newUserId(users);
+        String leadEmail = users.findById(clubLead).orElseThrow().getEmail();
+
+        mvc.perform(post("/api/platform/tenants").with(asPlatformAdmin(creatorId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"slug":"api_led_club","name":"Led Club","ownerEmail":"%s"}""".formatted(leadEmail)))
+                .andExpect(status().isCreated());
+
+        UUID tenantId = tenants.findBySlug("api_led_club").orElseThrow().getId();
+        assertThat(memberships.findByUserIdAndTenantId(clubLead, tenantId))
+                .get().extracting(m -> m.getRole()).isEqualTo(ClubRole.CLUB_ADMIN);
+        // the admin who created it is NOT automatically a member
+        assertThat(memberships.findByUserIdAndTenantId(creatorId, tenantId)).isEmpty();
+    }
+
+    @Test
+    void unknownOwnerEmailIs404AndCreatesNothing() throws Exception {
+        mvc.perform(post("/api/platform/tenants").with(asPlatformAdmin(creatorId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"slug":"api_orphan_club","name":"Orphan","ownerEmail":"nobody.here@srmist.edu.in"}"""))
+                .andExpect(status().isNotFound());
+
+        assertThat(tenants.findBySlug("api_orphan_club")).isEmpty();
+    }
+
+    @Test
     void invalidBodyIs400ProblemDetail() throws Exception {
-        mvc.perform(post("/api/platform/tenants").with(asUser(creatorId))
+        mvc.perform(post("/api/platform/tenants").with(asPlatformAdmin(creatorId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"slug":"Bad Slug","name":""}"""))
