@@ -32,6 +32,7 @@
 		<openpdf.version>3.0.5</openpdf.version>
 		<aws-sdk.version>2.55.6</aws-sdk.version>
 		<bucket4j.version>8.20.0</bucket4j.version>
+		<springdoc.version>3.1.1</springdoc.version>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
@@ -130,6 +131,12 @@
 			<groupId>com.bucket4j</groupId>
 			<artifactId>bucket4j_jdk17-lettuce</artifactId>
 			<version>${bucket4j.version}</version>
+		</dependency>
+		<dependency>
+			<!-- OpenAPI 3 spec at /v3/api-docs and Swagger UI at /swagger-ui.html -->
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+			<version>${springdoc.version}</version>
 		</dependency>
 		<dependency>
 			<!-- live notifications over STOMP (WebSocket) -->
