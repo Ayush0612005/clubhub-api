@@ -22,6 +22,7 @@ clubhub:
     secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-0123456789}
     issuer: clubhub-api
     access-token-ttl: 15m
+    refresh-token-ttl: 14d
 
 management:
   endpoints:

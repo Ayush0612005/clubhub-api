@@ -14,5 +14,6 @@ import java.time.Duration;
 public record JwtProperties(
         @NotBlank @Size(min = 32, message = "must be at least 32 bytes for HS256") String secret,
         @NotBlank String issuer,
-        @NotNull Duration accessTokenTtl) {
+        @NotNull Duration accessTokenTtl,
+        @NotNull Duration refreshTokenTtl) {
 }

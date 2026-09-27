@@ -23,7 +23,7 @@ class JwtTokenServiceTest {
     private static final String SECRET = "unit-test-secret-that-is-at-least-32-bytes!!";
 
     private final JwtConfig config = new JwtConfig();
-    private final JwtProperties props = new JwtProperties(SECRET, "clubhub-api", Duration.ofMinutes(15));
+    private final JwtProperties props = new JwtProperties(SECRET, "clubhub-api", Duration.ofMinutes(15), Duration.ofDays(14));
     private final SecretKey key = config.jwtSigningKey(props);
     private final JwtDecoder decoder = config.jwtDecoder(key, props);
     private final JwtTokenService service = new JwtTokenService(config.jwtEncoder(key), props);
@@ -57,7 +57,7 @@ class JwtTokenServiceTest {
     @Test
     void rejectsTokenSignedWithAnotherKey() {
         JwtProperties otherProps = new JwtProperties("another-secret-that-is-also-32-bytes-long!!", "clubhub-api",
-                Duration.ofMinutes(15));
+                Duration.ofMinutes(15), Duration.ofDays(14));
         JwtTokenService attacker = new JwtTokenService(config.jwtEncoder(config.jwtSigningKey(otherProps)), otherProps);
 
         assertThatThrownBy(() -> decoder.decode(attacker.issueAccessToken(user()).value()))
@@ -76,7 +76,7 @@ class JwtTokenServiceTest {
 
     @Test
     void rejectsForeignIssuer() {
-        JwtProperties foreign = new JwtProperties(SECRET, "someone-else", Duration.ofMinutes(15));
+        JwtProperties foreign = new JwtProperties(SECRET, "someone-else", Duration.ofMinutes(15), Duration.ofDays(14));
         JwtTokenService foreignService = new JwtTokenService(config.jwtEncoder(key), foreign);
 
         assertThatThrownBy(() -> decoder.decode(foreignService.issueAccessToken(user()).value()))
