@@ -9,9 +9,9 @@ Multi-tenant SaaS backend for college clubs at SRM KTR. Every club is a tenant w
 isolated PostgreSQL schema: recruitment, events with QR attendance, certificates and
 notifications, all running on one shared deployment.
 
-> **Status:** Phases 1–6 complete (tenancy core, auth + RBAC, recruitment, events + QR attendance,
-> S3 files + PDF certificates, notifications via Kafka → WebSocket + email). Plans, rate limits and
-> audit log are next.
+> **Status:** Phases 1–7 complete (tenancy core, auth + RBAC, recruitment, events + QR attendance,
+> S3 files + PDF certificates, notifications via Kafka → WebSocket + email, plans + rate limits +
+> audit log). The React frontend is next.
 > See [Roadmap](#roadmap).
 
 ## Architecture
@@ -111,6 +111,28 @@ service tx (e.g. shortlist applicant) ──commit──▶ DomainEventPublisher
   decoder as the REST API; subscriptions are restricted to `/user/queue/**`. Simple in-memory broker
   = single instance; multiple instances would need a broker relay.
 
+### Plans, rate limits and audit log
+
+| | FREE | PRO |
+|---|---|---|
+| Members | 100 | 2000 |
+| Upcoming events | 10 | 200 |
+| Open recruitment drives | 2 | 50 |
+| Requests per minute (per club) | 300 | 3000 |
+| Certificates · Event posters · Email | ✔ · – · – | ✔ · ✔ · ✔ |
+
+- **Limits are code, plans are data:** limits live in the `Plan` enum (reviewed and versioned like
+  code); which plan a club is on is a column. Per-club exceptions go through `tenant_features`
+  overrides set by the platform admin. Hitting a limit returns `409` with `"code": "PLAN_LIMIT"`,
+  a missing feature `403` with `"code": "FEATURE_NOT_IN_PLAN"`, so the UI can offer an upgrade.
+- **Rate limiting with Bucket4j token buckets in Redis:** shared across API instances. One bucket
+  per club (sized by plan, so a busy club can't starve others) and one per IP on
+  login/register/refresh (slows password guessing). `429` + `Retry-After`. The limiter **fails
+  open**: if Redis is down, requests are allowed and a warning is logged.
+- **Audit log per club,** written in the same transaction as the change (`Propagation.MANDATORY`):
+  member added/removed/role changed, drives, pipeline moves, events, certificates, profile. A
+  rejected change (e.g. demoting the last admin) leaves no audit row. Details stored as JSONB.
+
 ### Authentication and club access
 
 ```
@@ -144,17 +166,17 @@ POST /api/auth/refresh        → rotates the refresh token; reuse of an old one
 
 Java 25 · Spring Boot 4.1 (Web MVC, Data JPA, Security, OAuth2 Resource Server, Validation, Actuator) ·
 Hibernate 7 · PostgreSQL 18 · Flyway · Nimbus JOSE (JWT) · Kafka 4 (KRaft) · WebSocket (STOMP) · ZXing (QR) · OpenPDF ·
-AWS SDK v2 (S3, SES) · JUnit 5 · Mockito · Testcontainers · Docker Compose · GitHub Actions
+AWS SDK v2 (S3, SES) · Redis 8 + Bucket4j · springdoc-openapi · JUnit 5 · Mockito · Testcontainers ·
+Docker Compose · GitHub Actions
 
-Planned: Redis + Bucket4j, springdoc-openapi,
-Micrometer/Prometheus/Grafana, React 19 frontend.
+Planned: Micrometer/Prometheus/Grafana, React 19 frontend.
 
 ## Run locally
 
 Prerequisites: JDK 25, Docker Desktop.
 
 ```bash
-docker compose up -d                                  # PostgreSQL 18 :5432, Kafka (KRaft) :9092
+docker compose up -d                                  # PostgreSQL 18 :5432, Kafka :9092, Redis :6379
 ./mvnw spring-boot:run                                # Windows: .\mvnw.cmd spring-boot:run
 ```
 
@@ -248,6 +270,14 @@ curl localhost:8080/api/club/profile -H "Authorization: Bearer $CLUB_TOKEN"
 | `GET /api/notifications/unread-count` | any user | Badge count |
 | `POST /api/notifications/{id}/read` · `/read-all` | any user | Mark read |
 | `WS /ws` → `SUBSCRIBE /user/queue/notifications` | any user | Live notifications (STOMP, JWT in CONNECT) |
+| `GET /api/me` · `/api/me/clubs` | any user | My profile; my clubs with my role in each |
+| `GET /api/clubs` | any user | Directory of active clubs |
+| `GET /api/club/plan` | club member | Plan, limits, current usage, features |
+| `GET /api/club/audit` | `CLUB_ADMIN` | Audit trail (paged, `?action=`) |
+| `PATCH /api/platform/tenants/{id}/plan` | `PLATFORM_ADMIN` | Change a club's plan |
+| `PUT /api/platform/tenants/{id}/features/{feature}` | `PLATFORM_ADMIN` | Per-club feature override |
+
+Interactive docs: **Swagger UI at `/swagger-ui.html`** (OpenAPI spec at `/v3/api-docs`).
 
 Errors use RFC 9457 Problem Details (`application/problem+json`). 401 = not authenticated,
 403 = authenticated but not allowed.
@@ -255,14 +285,15 @@ Errors use RFC 9457 Problem Details (`application/problem+json`). 401 = not auth
 ## Tests
 
 ```bash
-./mvnw verify    # requires Docker; spins up throwaway PostgreSQL 18 and Kafka containers
+./mvnw verify    # requires Docker; spins up throwaway PostgreSQL 18, Kafka and Redis containers
 ```
 
-150 tests against real PostgreSQL 18 and Kafka (KRaft) containers, including: cross-club isolation
+161 tests against real PostgreSQL 18, Kafka (KRaft) and Redis containers, including: cross-club isolation
 over HTTP (`TenantIsolationTest`), forged / expired / `alg:none` tokens, refresh-token replay
 detection, live role changes, last-admin protection, recruitment state machines, concurrent
 registrations against capacity, QR tickets decoded from the PNG like a door scanner would, Kafka
-redelivery without duplicate notifications/emails, and a real WebSocket client receiving a push.
+redelivery without duplicate notifications/emails, a real WebSocket client receiving a push, plan
+limits, per-club and per-IP rate limits, and audit rows rolling back with a rejected change.
 
 ## Roadmap
 
@@ -272,6 +303,6 @@ redelivery without duplicate notifications/emails, and a real WebSocket client r
 - [x] **Phase 4** Events + QR attendance: capacity-safe registration, signed QR tickets, door check-in (`v0.4.0`)
 - [x] **Phase 5** S3 direct uploads with pre-signed URLs, PDF certificates with public verification (`v0.5.0`)
 - [x] **Phase 6** Notifications: Kafka domain events → inbox, STOMP WebSocket push, SES email (`v0.6.0`)
-- [ ] **Phase 7** Plans, feature flags, per-tenant rate limits, audit log
+- [x] **Phase 7** FREE/PRO plans + feature overrides, Redis/Bucket4j rate limits, audit log, OpenAPI docs (`v0.7.0`)
 - [ ] **Phase 8** React frontend
 - [ ] **Phase 9** Deploy on AWS (EC2 + RDS) and onboard SRM clubs
