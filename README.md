@@ -9,9 +9,9 @@ Multi-tenant SaaS for college clubs at SRM KTR. Every club is a tenant with its 
 isolated PostgreSQL schema: recruitment, events with QR attendance, certificates and
 notifications, all running on one shared deployment, with a React web app on top.
 
-> **Status:** Phases 1–8 complete (tenancy core, auth + RBAC, recruitment, events + QR attendance,
+> **Status:** Phases 1–9 complete (tenancy core, auth + RBAC, recruitment, events + QR attendance,
 > S3 files + PDF certificates, notifications via Kafka → WebSocket + email, plans + rate limits +
-> audit log, React frontend). Containerised deployment is next.
+> audit log, React frontend, containers + monitoring + free-tier deployment).
 > See [Roadmap](#roadmap).
 
 ## Web app
@@ -190,7 +190,7 @@ Docker Compose · GitHub Actions
 
 Web: React 19 · TypeScript 6 · Vite 8 · Tailwind CSS 4 · TanStack Query 5 · React Router · STOMP.js · ZXing (browser)
 
-Planned: Micrometer/Prometheus/Grafana.
+Ops: Docker (multi-stage, layered, non-root) · nginx · Micrometer + Prometheus + Grafana · Render · Vercel.
 
 ## Run locally
 
@@ -218,6 +218,23 @@ Web app (Node 24):
 ```bash
 cd frontend && npm install && npm run dev             # http://localhost:5173 (proxies /api and /ws to :8080)
 ```
+
+Whole stack in containers (API, web, PostgreSQL, Kafka, Redis, Prometheus, Grafana):
+
+```bash
+docker compose --profile full up -d --build           # app http://localhost:8088 · Grafana http://localhost:3002
+```
+
+The API container runs under a 512 MB limit with the same JVM flags as the free cloud instance
+(measured: ~380 MB under load, p95 ≈ 12 ms for directory reads).
+nginx serves the SPA and reverse-proxies `/api` and `/ws`; the API port and `/actuator` are never
+published, and Prometheus scrapes a separate management port on the private network.
+
+### Deploy (free, no credit card)
+
+Vercel (web) + Render (API, Docker) + Neon (PostgreSQL) + Upstash (Redis) + Aiven (Kafka), all on free
+tiers. Step-by-step guide: **[docs/DEPLOY.md](docs/DEPLOY.md)** · Render blueprint: [`render.yaml`](render.yaml)
+· cloud settings: [`application-cloud.yaml`](src/main/resources/application-cloud.yaml).
 
 ### Try it
 
@@ -331,4 +348,5 @@ limits, per-club and per-IP rate limits, and audit rows rolling back with a reje
 - [x] **Phase 6** Notifications: Kafka domain events → inbox, STOMP WebSocket push, SES email (`v0.6.0`)
 - [x] **Phase 7** FREE/PRO plans + feature overrides, Redis/Bucket4j rate limits, audit log, OpenAPI docs (`v0.7.0`)
 - [x] **Phase 8** React frontend: student app, club workspace with kanban + camera door scanner, live notifications (`v0.8.0`)
-- [ ] **Phase 9** Deploy on AWS (EC2 + RDS) and onboard SRM clubs
+- [x] **Phase 9** Docker images, full-stack compose, Prometheus + Grafana, free-tier deployment (Vercel + Render + Neon + Upstash + Aiven) (`v0.9.0`)
+- [ ] Onboard SRM clubs (target: April 2027)

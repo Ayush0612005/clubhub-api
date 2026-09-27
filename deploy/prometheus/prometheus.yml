@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: clubhub-api
+    metrics_path: /actuator/prometheus
+    static_configs:
+      # the API's private management port on the compose network (never published)
+      - targets: ['api:8081']

@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 # ---- build the static bundle
 FROM node:24-alpine AS build
 WORKDIR /app

@@ -30,7 +30,7 @@ public class SecurityConfig {
                         // refresh/logout authenticate with the refresh token in the body, not a bearer token
                         .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login",
                                 "/api/auth/refresh", "/api/auth/logout").permitAll()
-                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/prometheus").permitAll()
                         // certificate verification links are printed on PDFs and opened by recruiters
                         .requestMatchers(HttpMethod.GET, "/api/verify/**").permitAll()
                         // WebSocket handshake can't carry a bearer header: STOMP CONNECT is authenticated
