@@ -3,6 +3,7 @@ package com.clubhub.club;
 import com.clubhub.club.ClubProfileDtos.ClubProfileResponse;
 import com.clubhub.club.ClubProfileDtos.UpdateClubProfileRequest;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -25,7 +26,9 @@ public class ClubProfileController {
         return service.get();
     }
 
+    /** Any member may read; only CORE and CLUB_ADMIN may edit the club's public profile. */
     @PutMapping
+    @PreAuthorize("@clubAuthz.atLeast('CORE')")
     public ClubProfileResponse update(@Valid @RequestBody UpdateClubProfileRequest request) {
         return service.update(request);
     }

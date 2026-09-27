@@ -4,6 +4,7 @@ import com.clubhub.auth.AuthExceptions;
 import com.clubhub.tenant.TenantAlreadyExistsException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
@@ -38,6 +39,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(AuthExceptions.ClubAccessDeniedException.class)
     ProblemDetail handleClubAccessDenied(AuthExceptions.ClubAccessDeniedException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, e.getMessage());
+    }
+
+    /** @PreAuthorize denials (e.g. a MEMBER calling a CORE-only endpoint): consistent problem+json body. */
+    @ExceptionHandler(AccessDeniedException.class)
+    ProblemDetail handleAccessDenied(AccessDeniedException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, "Your role does not allow this action");
     }
 
     @ExceptionHandler(NotFoundException.class)

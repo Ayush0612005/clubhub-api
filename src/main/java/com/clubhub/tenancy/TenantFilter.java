@@ -1,5 +1,6 @@
 package com.clubhub.tenancy;
 
+import com.clubhub.membership.Membership;
 import com.clubhub.membership.MembershipRepository;
 import com.clubhub.security.JwtTokenService;
 import com.clubhub.tenant.Tenant;
@@ -67,10 +68,11 @@ public class TenantFilter extends OncePerRequestFilter {
 
         Optional<Tenant> tenant = tenantRepository.findById(tenantId.get());
         Optional<UUID> userId = parseUuid(jwtAuth.getToken().getSubject());
-        boolean member = tenant.isPresent() && userId.isPresent()
-                && membershipRepository.findByUserIdAndTenantId(userId.get(), tenantId.get()).isPresent();
+        Optional<Membership> membership = tenant.isPresent() && userId.isPresent()
+                ? membershipRepository.findByUserIdAndTenantId(userId.get(), tenantId.get())
+                : Optional.empty();
 
-        if (!member) {
+        if (membership.isEmpty()) {
             // same answer for unknown club and non-member: nothing to learn by probing ids
             writeProblem(response, HttpStatus.FORBIDDEN, "You are not a member of this club");
             return;
@@ -80,11 +82,14 @@ public class TenantFilter extends OncePerRequestFilter {
             return;
         }
 
+        CurrentMember.ClubMember member = new CurrentMember.ClubMember(
+                userId.get(), tenantId.get(), membership.get().getRole());
         try {
-            TenantContext.callAs(tenant.get().getSchemaName(), () -> {
-                chain.doFilter(request, response);
-                return null;
-            });
+            TenantContext.callAs(tenant.get().getSchemaName(), () ->
+                    CurrentMember.callAs(member, () -> {
+                        chain.doFilter(request, response);
+                        return null;
+                    }));
         } catch (IOException | ServletException | RuntimeException e) {
             throw e;
         } catch (Exception e) {
