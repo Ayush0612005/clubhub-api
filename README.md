@@ -9,8 +9,9 @@ Multi-tenant SaaS backend for college clubs at SRM KTR. Every club is a tenant w
 isolated PostgreSQL schema: recruitment, events with QR attendance, certificates and
 notifications, all running on one shared deployment.
 
-> **Status:** Phases 1–5 complete (tenancy core, auth + RBAC, recruitment, events + QR attendance,
-> S3 files + PDF certificates). Notifications (Kafka → WebSocket + email) is next.
+> **Status:** Phases 1–6 complete (tenancy core, auth + RBAC, recruitment, events + QR attendance,
+> S3 files + PDF certificates, notifications via Kafka → WebSocket + email). Plans, rate limits and
+> audit log are next.
 > See [Roadmap](#roadmap).
 
 ## Architecture
@@ -87,6 +88,29 @@ certificates: POST /api/club/events/{id}/certificates → one per checked-in att
 - Credentials come from the AWS default chain (EC2 instance role in production); static keys are
   only for local emulators and tests. Tests pre-sign for real and mock only the network call.
 
+### Notifications (Kafka → inbox, WebSocket, email)
+
+```
+service tx (e.g. shortlist applicant) ──commit──▶ DomainEventPublisher ──▶ Kafka topic clubhub.domain-events
+                                                                            (key = club id, 3 partitions)
+   consumer group clubhub-notifications ─▶ public.notifications (inbox) ─▶ STOMP /user/queue/notifications
+   consumer group clubhub-email         ─▶ email_log + Amazon SES (personal events only)
+   poison record: 3 retries, 1 s apart ─▶ clubhub.domain-events-dlt
+```
+
+- **Published after commit** (`@TransactionalEventListener(AFTER_COMMIT)`): a rolled-back change
+  never notifies anyone. Known trade-off: a crash between commit and send loses that event; the
+  full fix is a transactional outbox, not worth it for notifications yet.
+- **At-least-once, deduplicated:** every event has its own UUID; `UNIQUE (source_event_id, user_id)`
+  on the inbox and on `email_log` makes a redelivery a no-op.
+- **Two consumer groups on one topic:** each gets every event, so a slow or failing email provider
+  never delays in-app notifications.
+- **Fan-out in the consumer:** "event published" carries the club id; the consumer looks up members,
+  keeping the request fast no matter how big the club is. Only personal events are emailed.
+- **WebSocket auth on STOMP CONNECT** (browsers can't send headers on the handshake): the same JWT
+  decoder as the REST API; subscriptions are restricted to `/user/queue/**`. Simple in-memory broker
+  = single instance; multiple instances would need a broker relay.
+
 ### Authentication and club access
 
 ```
@@ -119,10 +143,10 @@ POST /api/auth/refresh        → rotates the refresh token; reuse of an old one
 ## Tech stack
 
 Java 25 · Spring Boot 4.1 (Web MVC, Data JPA, Security, OAuth2 Resource Server, Validation, Actuator) ·
-Hibernate 7 · PostgreSQL 18 · Flyway · Nimbus JOSE (JWT) · ZXing (QR) · OpenPDF · AWS SDK v2 (S3) · JUnit 5 · Mockito ·
-Testcontainers · Docker Compose · GitHub Actions
+Hibernate 7 · PostgreSQL 18 · Flyway · Nimbus JOSE (JWT) · Kafka 4 (KRaft) · WebSocket (STOMP) · ZXing (QR) · OpenPDF ·
+AWS SDK v2 (S3, SES) · JUnit 5 · Mockito · Testcontainers · Docker Compose · GitHub Actions
 
-Planned: Redis + Bucket4j, Kafka, WebSocket (STOMP), AWS SES, springdoc-openapi,
+Planned: Redis + Bucket4j, springdoc-openapi,
 Micrometer/Prometheus/Grafana, React 19 frontend.
 
 ## Run locally
@@ -130,7 +154,7 @@ Micrometer/Prometheus/Grafana, React 19 frontend.
 Prerequisites: JDK 25, Docker Desktop.
 
 ```bash
-docker compose up -d                                  # PostgreSQL 18 on localhost:5432
+docker compose up -d                                  # PostgreSQL 18 :5432, Kafka (KRaft) :9092
 ./mvnw spring-boot:run                                # Windows: .\mvnw.cmd spring-boot:run
 ```
 
@@ -140,7 +164,10 @@ docker compose up -d                                  # PostgreSQL 18 on localho
 | `CLUBHUB_ADMIN_EMAIL` | existing account promoted to `PLATFORM_ADMIN` at startup | none |
 | `CLUBHUB_PUBLIC_BASE_URL` | base URL printed on certificates (verification link/QR) | `http://localhost:8080` |
 | `CLUBHUB_S3_BUCKET` · `AWS_REGION` | S3 bucket and region for uploads | `clubhub-dev` · `ap-south-1` |
-| `AWS_ACCESS_KEY_ID` · `AWS_SECRET_ACCESS_KEY` | S3 credentials locally (EC2 uses its instance role) | AWS default chain |
+| `AWS_ACCESS_KEY_ID` · `AWS_SECRET_ACCESS_KEY` | S3/SES credentials locally (EC2 uses its instance role) | AWS default chain |
+| `KAFKA_BOOTSTRAP_SERVERS` | Kafka brokers | `localhost:9092` |
+| `CLUBHUB_MAIL_PROVIDER` · `CLUBHUB_MAIL_FROM` | `ses` to really send email; `log` only logs | `log` |
+| `CLUBHUB_APP_URL` · `CLUBHUB_ALLOWED_ORIGINS` | frontend URL (email links) and WebSocket origins | `http://localhost:5173` |
 
 Running from an IDE: add `-Duser.timezone=UTC` to the VM options.
 
@@ -217,6 +244,10 @@ curl localhost:8080/api/club/profile -H "Authorization: Bearer $CLUB_TOKEN"
 | `GET /api/clubs/{slug}/certificates/mine` | any user | My certificates from this club |
 | `GET /api/clubs/{slug}/certificates/{id}/pdf` | recipient | Download the PDF |
 | `GET /api/verify/certificates/{slug}/{id}` | **public** | Verify a certificate (link/QR on the PDF) |
+| `GET /api/notifications` | any user | My inbox across all clubs (paged, `?unreadOnly=true`) |
+| `GET /api/notifications/unread-count` | any user | Badge count |
+| `POST /api/notifications/{id}/read` · `/read-all` | any user | Mark read |
+| `WS /ws` → `SUBSCRIBE /user/queue/notifications` | any user | Live notifications (STOMP, JWT in CONNECT) |
 
 Errors use RFC 9457 Problem Details (`application/problem+json`). 401 = not authenticated,
 403 = authenticated but not allowed.
@@ -224,13 +255,14 @@ Errors use RFC 9457 Problem Details (`application/problem+json`). 401 = not auth
 ## Tests
 
 ```bash
-./mvnw verify    # requires Docker; spins up a throwaway PostgreSQL 18 container
+./mvnw verify    # requires Docker; spins up throwaway PostgreSQL 18 and Kafka containers
 ```
 
-138 tests, including: cross-club isolation over HTTP (`TenantIsolationTest`), forged / expired /
-`alg:none` tokens, refresh-token replay detection, live role changes, last-admin protection,
-recruitment state machines, selection → membership end to end, concurrent registrations against
-capacity, and QR tickets decoded from the PNG exactly like a door scanner would.
+150 tests against real PostgreSQL 18 and Kafka (KRaft) containers, including: cross-club isolation
+over HTTP (`TenantIsolationTest`), forged / expired / `alg:none` tokens, refresh-token replay
+detection, live role changes, last-admin protection, recruitment state machines, concurrent
+registrations against capacity, QR tickets decoded from the PNG like a door scanner would, Kafka
+redelivery without duplicate notifications/emails, and a real WebSocket client receiving a push.
 
 ## Roadmap
 
@@ -239,7 +271,7 @@ capacity, and QR tickets decoded from the PNG exactly like a door scanner would.
 - [x] **Phase 3** Recruitment: drives with questions, student applications, audited review pipeline, auto-membership on selection (`v0.3.0`)
 - [x] **Phase 4** Events + QR attendance: capacity-safe registration, signed QR tickets, door check-in (`v0.4.0`)
 - [x] **Phase 5** S3 direct uploads with pre-signed URLs, PDF certificates with public verification (`v0.5.0`)
-- [ ] **Phase 6** Notifications: Kafka → WebSocket + email
+- [x] **Phase 6** Notifications: Kafka domain events → inbox, STOMP WebSocket push, SES email (`v0.6.0`)
 - [ ] **Phase 7** Plans, feature flags, per-tenant rate limits, audit log
 - [ ] **Phase 8** React frontend
 - [ ] **Phase 9** Deploy on AWS (EC2 + RDS) and onboard SRM clubs
