@@ -1,7 +1,9 @@
 package com.clubhub.auth;
 
+import com.clubhub.auth.AuthDtos.ClubTokenResponse;
 import com.clubhub.auth.AuthDtos.LoginRequest;
 import com.clubhub.auth.AuthDtos.RefreshRequest;
+import com.clubhub.auth.AuthDtos.SwitchClubRequest;
 import com.clubhub.auth.AuthDtos.RegisterRequest;
 import com.clubhub.auth.AuthDtos.TokenResponse;
 import com.clubhub.auth.AuthDtos.UserResponse;
@@ -17,7 +19,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -43,7 +47,13 @@ public class AuthController {
     /** Trade a refresh token for a new access + refresh token pair (the old refresh token dies). */
     @PostMapping("/refresh")
     public TokenResponse refresh(@Valid @RequestBody RefreshRequest request) {
-        return authService.refresh(request.refreshToken());
+        return authService.refresh(request.refreshToken(), request.clubSlug());
+    }
+
+    /** Needs a valid access token; returns a new one scoped to the requested club. */
+    @PostMapping("/switch-club")
+    public ClubTokenResponse switchClub(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody SwitchClubRequest request) {
+        return authService.switchClub(UUID.fromString(jwt.getSubject()), request.clubSlug());
     }
 
     @PostMapping("/logout")
@@ -55,9 +65,12 @@ public class AuthController {
     /** Who does this token belong to? Read straight from the verified JWT, no DB hit. */
     @GetMapping("/me")
     public Map<String, Object> me(@AuthenticationPrincipal Jwt jwt) {
-        return Map.of(
-                "id", jwt.getSubject(),
-                "email", jwt.getClaimAsString(JwtTokenService.CLAIM_EMAIL),
-                "roles", jwt.getClaimAsStringList(JwtTokenService.CLAIM_ROLES));
+        Map<String, Object> me = new LinkedHashMap<>();
+        me.put("id", jwt.getSubject());
+        me.put("email", jwt.getClaimAsString(JwtTokenService.CLAIM_EMAIL));
+        me.put("roles", jwt.getClaimAsStringList(JwtTokenService.CLAIM_ROLES));
+        me.put("club", jwt.getClaimAsString(JwtTokenService.CLAIM_CLUB));           // null if no active club
+        me.put("clubRole", jwt.getClaimAsString(JwtTokenService.CLAIM_CLUB_ROLE));
+        return me;
     }
 }

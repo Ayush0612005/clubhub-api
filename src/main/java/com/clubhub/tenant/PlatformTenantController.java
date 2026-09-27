@@ -5,6 +5,8 @@ import com.clubhub.tenant.TenantDtos.TenantResponse;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Platform-level club management. UNSECURED until Phase 2, where it becomes PLATFORM_ADMIN only.
@@ -30,8 +33,10 @@ public class PlatformTenantController {
     }
 
     @PostMapping
-    public ResponseEntity<TenantResponse> create(@Valid @RequestBody CreateTenantRequest request) {
-        Tenant tenant = provisioningService.provision(request.slug(), request.name());
+    public ResponseEntity<TenantResponse> create(@AuthenticationPrincipal Jwt jwt,
+                                                 @Valid @RequestBody CreateTenantRequest request) {
+        // the caller becomes the club's first CLUB_ADMIN
+        Tenant tenant = provisioningService.provision(request.slug(), request.name(), UUID.fromString(jwt.getSubject()));
         return ResponseEntity
                 .created(URI.create("/api/platform/tenants/" + tenant.getId()))
                 .body(TenantResponse.from(tenant));

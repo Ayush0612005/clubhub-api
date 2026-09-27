@@ -35,9 +35,13 @@ class TenantIsolationTest {
 
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
+    @Autowired com.clubhub.user.UserRepository users;
+
+    java.util.UUID ownerId;
 
     @BeforeAll
     void onboardTwoClubsThroughTheApi() throws Exception {
+        ownerId = com.clubhub.support.TestAuth.newUserId(users);
         createClub("iso_alpha", "Alpha Society");
         createClub("iso_beta", "Beta Society");
     }
@@ -87,7 +91,7 @@ class TenantIsolationTest {
     private void createClub(String slug, String name) throws Exception {
         mvc.perform(post("/api/platform/tenants")
                         // called from @BeforeAll, where @WithMockUser does not apply: authenticate this request explicitly
-                        .with(user("setup-admin"))
+                        .with(com.clubhub.support.TestAuth.asUser(ownerId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"slug":"%s","name":"%s"}""".formatted(slug, name)))

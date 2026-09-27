@@ -2,8 +2,13 @@ package com.clubhub.tenant;
 
 import com.clubhub.club.ClubProfile;
 import com.clubhub.club.ClubProfileRepository;
+import com.clubhub.membership.ClubRole;
+import com.clubhub.membership.Membership;
+import com.clubhub.membership.MembershipRepository;
 import com.clubhub.tenancy.TenantContext;
 import org.springframework.stereotype.Service;
+
+import java.util.UUID;
 
 /**
  * Onboards a new club: validates the slug, builds its schema, then registers it.
@@ -18,13 +23,16 @@ public class TenantProvisioningService {
     private final TenantRepository tenantRepository;
     private final TenantSchemaMigrator schemaMigrator;
     private final ClubProfileRepository clubProfileRepository;
+    private final MembershipRepository membershipRepository;
 
     public TenantProvisioningService(TenantRepository tenantRepository,
                                      TenantSchemaMigrator schemaMigrator,
-                                     ClubProfileRepository clubProfileRepository) {
+                                     ClubProfileRepository clubProfileRepository,
+                                     MembershipRepository membershipRepository) {
         this.tenantRepository = tenantRepository;
         this.schemaMigrator = schemaMigrator;
         this.clubProfileRepository = clubProfileRepository;
+        this.membershipRepository = membershipRepository;
     }
 
     public Tenant provision(String slug, String name) {
@@ -43,5 +51,12 @@ public class TenantProvisioningService {
         TenantContext.runAs(tenant.getSchemaName(), () -> clubProfileRepository.save(new ClubProfile(name)));
         // unique constraint still guards the race where two requests pass existsBySlug together
         return tenantRepository.saveAndFlush(tenant);
+    }
+
+    /** Provision a club and make {@code ownerUserId} its first CLUB_ADMIN. */
+    public Tenant provision(String slug, String name, UUID ownerUserId) {
+        Tenant tenant = provision(slug, name);
+        membershipRepository.save(new Membership(ownerUserId, tenant.getId(), ClubRole.CLUB_ADMIN));
+        return tenant;
     }
 }

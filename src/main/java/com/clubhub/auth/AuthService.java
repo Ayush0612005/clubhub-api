@@ -1,5 +1,7 @@
 package com.clubhub.auth;
 
+import com.clubhub.auth.AuthDtos.ActiveClub;
+import com.clubhub.auth.AuthDtos.ClubTokenResponse;
 import com.clubhub.auth.AuthDtos.LoginRequest;
 import com.clubhub.auth.AuthDtos.RegisterRequest;
 import com.clubhub.auth.AuthDtos.TokenResponse;
@@ -10,6 +12,8 @@ import com.clubhub.auth.AuthExceptions.InvalidRefreshTokenException;
 import com.clubhub.auth.RefreshTokenService.IssuedRefreshToken;
 import com.clubhub.auth.RefreshTokenService.Rotation;
 import com.clubhub.security.JwtTokenService;
+import com.clubhub.security.JwtTokenService.AccessToken;
+import com.clubhub.security.JwtTokenService.ClubClaims;
 import com.clubhub.user.User;
 import com.clubhub.user.UserRepository;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -18,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -26,15 +31,18 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService tokenService;
     private final RefreshTokenService refreshTokenService;
+    private final ClubAccessService clubAccessService;
     /** Hash compared against when the email is unknown, so both failure paths take the same time. */
     private final String dummyHash;
 
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,
-                       JwtTokenService tokenService, RefreshTokenService refreshTokenService) {
+                       JwtTokenService tokenService, RefreshTokenService refreshTokenService,
+                       ClubAccessService clubAccessService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
         this.refreshTokenService = refreshTokenService;
+        this.clubAccessService = clubAccessService;
         this.dummyHash = passwordEncoder.encode("timing-equalizer-not-a-real-password");
     }
 
@@ -66,28 +74,52 @@ public class AuthService {
         if (user.isEmpty() || !passwordMatches || !user.get().isEnabled()) {
             throw new InvalidCredentialsException();
         }
-        return tokensFor(user.get(), refreshTokenService.issueForNewLogin(user.get().getId()));
+        IssuedRefreshToken refresh = refreshTokenService.issueForNewLogin(user.get().getId());
+        return tokens(user.get(), refresh, Optional.empty());
     }
 
     /**
      * Deliberately NOT @Transactional. rotate() commits its own transaction, including the family
      * revocation on reuse. An outer transaction here would be marked rollback-only by the
      * InvalidRefreshTokenException and silently undo that revocation.
+     *
+     * If clubSlug is given, membership is re-checked now. If it was revoked meanwhile, the client
+     * still gets a valid (club-less) token pair instead of an error, so the session survives.
      */
-    public TokenResponse refresh(String refreshToken) {
+    public TokenResponse refresh(String refreshToken, String clubSlug) {
         Rotation rotation = refreshTokenService.rotate(refreshToken);
         User user = userRepository.findById(rotation.userId())
                 .filter(User::isEnabled)
                 .orElseThrow(InvalidRefreshTokenException::new);
-        return tokensFor(user, rotation.next());
+        Optional<ClubClaims> club = clubSlug == null || clubSlug.isBlank()
+                ? Optional.empty()
+                : clubAccessService.findAccess(user.getId(), clubSlug);
+        return tokens(user, rotation.next(), club);
     }
 
     public void logout(String refreshToken) {
         refreshTokenService.revoke(refreshToken);
     }
 
-    private TokenResponse tokensFor(User user, IssuedRefreshToken refresh) {
-        JwtTokenService.AccessToken access = tokenService.issueAccessToken(user);
-        return TokenResponse.bearer(access.value(), access.expiresAt(), refresh.value(), refresh.expiresAt());
+    /** Re-issues the access token scoped to one club, after checking the user belongs to it. */
+    @Transactional(readOnly = true)
+    public ClubTokenResponse switchClub(UUID userId, String clubSlug) {
+        User user = userRepository.findById(userId)
+                .filter(User::isEnabled)
+                .orElseThrow(InvalidCredentialsException::new);
+        ClubClaims club = clubAccessService.requireAccess(userId, clubSlug);
+        AccessToken access = tokenService.issueClubAccessToken(user, club);
+        return new ClubTokenResponse(access.value(), "Bearer", access.expiresAt(), activeClub(club));
+    }
+
+    private TokenResponse tokens(User user, IssuedRefreshToken refresh, Optional<ClubClaims> club) {
+        AccessToken access = club.map(c -> tokenService.issueClubAccessToken(user, c))
+                .orElseGet(() -> tokenService.issueAccessToken(user));
+        return TokenResponse.bearer(access.value(), access.expiresAt(), refresh.value(), refresh.expiresAt(),
+                club.map(AuthService::activeClub).orElse(null));
+    }
+
+    private static ActiveClub activeClub(ClubClaims club) {
+        return new ActiveClub(club.slug(), club.role());
     }
 }

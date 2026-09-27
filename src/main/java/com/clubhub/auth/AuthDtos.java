@@ -25,15 +25,27 @@ public final class AuthDtos {
     public record UserResponse(UUID id, String email, String fullName) {
     }
 
-    public record RefreshRequest(@NotBlank String refreshToken) {
+    /** clubSlug (optional): keep the new access token scoped to this club, re-checking membership. */
+    public record RefreshRequest(@NotBlank String refreshToken, String clubSlug) {
     }
 
+    public record SwitchClubRequest(@NotBlank String clubSlug) {
+    }
+
+    public record ActiveClub(String slug, String role) {
+    }
+
+    /** club is null when the access token is not scoped to any club. */
     public record TokenResponse(String accessToken, String tokenType, Instant expiresAt,
-                                String refreshToken, Instant refreshExpiresAt) {
+                                String refreshToken, Instant refreshExpiresAt, ActiveClub club) {
 
         static TokenResponse bearer(String accessToken, Instant expiresAt,
-                                    String refreshToken, Instant refreshExpiresAt) {
-            return new TokenResponse(accessToken, "Bearer", expiresAt, refreshToken, refreshExpiresAt);
+                                    String refreshToken, Instant refreshExpiresAt, ActiveClub club) {
+            return new TokenResponse(accessToken, "Bearer", expiresAt, refreshToken, refreshExpiresAt, club);
         }
+    }
+
+    /** switch-club only replaces the access token; the refresh token is untouched. */
+    public record ClubTokenResponse(String accessToken, String tokenType, Instant expiresAt, ActiveClub club) {
     }
 }
