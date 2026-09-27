@@ -6,6 +6,8 @@ import com.clubhub.event.EventDtos.CreateEventRequest;
 import com.clubhub.event.EventDtos.EventResponse;
 import com.clubhub.event.EventDtos.Registrant;
 import com.clubhub.event.EventDtos.RegistrationResponse;
+import com.clubhub.event.EventDtos.TicketResponse;
+import com.clubhub.tenancy.TenantContext;
 import com.clubhub.user.User;
 import com.clubhub.user.UserRepository;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -31,13 +33,29 @@ public class EventService {
     private final EventRegistrationRepository registrations;
     private final AttendanceRepository attendance;
     private final UserRepository users;
+    private final TicketService tickets;
 
     public EventService(EventRepository events, EventRegistrationRepository registrations,
-                        AttendanceRepository attendance, UserRepository users) {
+                        AttendanceRepository attendance, UserRepository users, TicketService tickets) {
         this.events = events;
         this.registrations = registrations;
         this.attendance = attendance;
         this.users = users;
+        this.tickets = tickets;
+    }
+
+    /** The caller's personal signed ticket; only registered attendees of a live event get one. */
+    @Transactional(readOnly = true)
+    public TicketResponse ticket(Long eventId, UUID userId, boolean member) {
+        Event event = visible(eventId, member, false);
+        if (event.getStatus() == EventStatus.CANCELLED) {
+            throw new ConflictException("This event was cancelled");
+        }
+        if (!registrations.existsByEventIdAndUserId(eventId, userId)) {
+            throw new NotFoundException("You are not registered for this event");
+        }
+        String schema = TenantContext.currentSchema().orElseThrow();
+        return new TicketResponse(eventId, tickets.issue(schema, eventId, userId));
     }
 
     @Transactional

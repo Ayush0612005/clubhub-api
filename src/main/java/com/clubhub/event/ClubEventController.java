@@ -4,11 +4,13 @@ import com.clubhub.event.EventDtos.CreateEventRequest;
 import com.clubhub.event.EventDtos.EventResponse;
 import com.clubhub.event.EventDtos.Registrant;
 import com.clubhub.event.EventDtos.RegistrationResponse;
+import com.clubhub.event.EventDtos.TicketResponse;
 import com.clubhub.membership.ClubRole;
 import com.clubhub.tenancy.CurrentMember;
 import com.clubhub.tenancy.CurrentMember.ClubMember;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -71,6 +73,16 @@ public class ClubEventController {
     @ResponseStatus(HttpStatus.CREATED)
     public RegistrationResponse register(@PathVariable Long id) {
         return service.register(id, member().userId(), true);
+    }
+
+    @GetMapping("/{id}/ticket")
+    public TicketResponse ticket(@PathVariable Long id) {
+        return service.ticket(id, member().userId(), true);
+    }
+
+    @GetMapping("/{id}/ticket/qr")
+    public ResponseEntity<byte[]> ticketQr(@PathVariable Long id) {
+        return TicketImages.png(service.ticket(id, member().userId(), true));
     }
 
     @DeleteMapping("/{id}/registration")

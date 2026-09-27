@@ -2,7 +2,9 @@ package com.clubhub.event;
 
 import com.clubhub.event.EventDtos.EventResponse;
 import com.clubhub.event.EventDtos.RegistrationResponse;
+import com.clubhub.event.EventDtos.TicketResponse;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -44,6 +46,16 @@ public class StudentEventController {
     @ResponseStatus(HttpStatus.CREATED)
     public RegistrationResponse register(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
         return service.register(id, UUID.fromString(jwt.getSubject()), false);
+    }
+
+    @GetMapping("/{id}/ticket")
+    public TicketResponse ticket(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
+        return service.ticket(id, UUID.fromString(jwt.getSubject()), false);
+    }
+
+    @GetMapping("/{id}/ticket/qr")
+    public ResponseEntity<byte[]> ticketQr(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
+        return TicketImages.png(service.ticket(id, UUID.fromString(jwt.getSubject()), false));
     }
 
     @DeleteMapping("/{id}/registration")

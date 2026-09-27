@@ -41,6 +41,10 @@ public final class EventDtos {
         }
     }
 
+    /** The ticket string is what the QR code encodes; clients may render it themselves or fetch the PNG. */
+    public record TicketResponse(Long eventId, String ticket) {
+    }
+
     public record Registrant(UUID userId, String email, String fullName, Instant registeredAt, boolean attended) {
     }
 }
