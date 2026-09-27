@@ -16,14 +16,14 @@ function NavItem({ to, icon, children, end, badge }: { to: string; icon: ReactNo
       end={end}
       className={({ isActive }) =>
         clsx(
-          'group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition',
-          isActive ? 'bg-ink text-paper' : 'text-ink-2 hover:bg-paper-2 hover:text-ink',
+          'group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
+          isActive ? 'bg-signal-50 text-ink ring-1 ring-signal/25 ring-inset [&_svg]:text-signal-ink' : 'text-muted hover:bg-paper-2 hover:text-ink',
         )
       }
     >
       <span className="size-[18px] [&>svg]:size-[18px]">{icon}</span>
       <span className="flex-1">{children}</span>
-      {!!badge && <span className="rounded-full bg-signal px-1.5 py-0.5 text-[11px] leading-none font-semibold text-white">{badge > 99 ? '99+' : badge}</span>}
+      {!!badge && <span className="rounded-md bg-signal px-1.5 py-0.5 font-mono text-[11px] leading-none font-semibold text-on-signal">{badge > 99 ? '99+' : badge}</span>}
     </NavLink>
   )
 }
@@ -43,7 +43,7 @@ function Sidebar({ live, onNavigate }: { live: boolean; onNavigate?: () => void 
       <div className="flex items-center justify-between px-2 pt-1 pb-6">
         <Logo />
         <span className="flex items-center gap-1.5 font-mono text-[10px] tracking-wider text-muted uppercase" title={live ? 'Live updates on' : 'Connecting…'}>
-          <span className={clsx('size-1.5 rounded-full', live ? 'bg-forest shadow-[0_0_0_3px_rgb(31_111_74/0.15)]' : 'bg-muted/50')} />
+          <span className={clsx('size-1.5 rounded-full', live ? 'bg-forest shadow-[0_0_0_3px_rgb(52_211_153/0.18)]' : 'bg-muted/50')} />
           {live ? 'live' : '…'}
         </span>
       </div>
@@ -70,7 +70,7 @@ function Sidebar({ live, onNavigate }: { live: boolean; onNavigate?: () => void 
             key={club.slug}
             to={`/app/c/${club.slug}`}
             className={({ isActive }) =>
-              clsx('flex items-center gap-3 rounded-xl px-2 py-1.5 transition', isActive ? 'bg-surface shadow-soft ring-1 ring-line' : 'hover:bg-paper-2')
+              clsx('flex items-center gap-3 rounded-md px-2 py-1.5 transition', isActive ? 'bg-paper-2 ring-1 ring-line' : 'hover:bg-paper-2')
             }
           >
             <Avatar name={club.name} size={30} square />
@@ -83,7 +83,7 @@ function Sidebar({ live, onNavigate }: { live: boolean; onNavigate?: () => void 
         ))}
       </div>
 
-      <div className="mt-4 flex items-center gap-3 rounded-2xl border border-line bg-surface p-2.5">
+      <div className="mt-4 flex items-center gap-3 rounded-lg border border-line bg-surface p-2.5">
         <Avatar name={me.data?.fullName ?? '…'} size={34} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{me.data?.fullName ?? ' '}</p>
@@ -123,7 +123,7 @@ export default function AppLayout() {
         </button>
       </header>
       {open && (
-        <div className="fixed inset-0 z-40 bg-ink/40 lg:hidden" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 z-40 bg-black/60 lg:hidden" onClick={() => setOpen(false)}>
           <div className="animate-rise h-full w-80 max-w-[85vw] bg-paper p-4" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setOpen(false)} className="absolute top-4 right-4 rounded-xl p-2 text-paper" aria-label="Close menu">
               <X className="size-5" />
@@ -133,8 +133,9 @@ export default function AppLayout() {
         </div>
       )}
 
-      <main className="lg:pl-72">
-        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8 lg:py-10">
+      <main className="relative lg:pl-72">
+        <div className="glow pointer-events-none absolute inset-x-0 top-0 h-80 opacity-60" />
+        <div className="relative mx-auto max-w-6xl px-4 py-8 sm:px-8 lg:py-10">
           <Outlet />
         </div>
       </main>

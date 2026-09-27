@@ -10,17 +10,18 @@ type Variant = 'primary' | 'ink' | 'outline' | 'ghost' | 'danger'
 type Size = 'sm' | 'md' | 'lg'
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-signal text-white hover:bg-signal-600 shadow-[0_1px_0_rgb(0_0_0/0.08),inset_0_1px_0_rgb(255_255_255/0.2)]',
-  ink: 'bg-ink text-paper hover:bg-ink-2',
-  outline: 'border border-line bg-surface text-ink hover:border-ink/30 hover:bg-paper-2',
+  primary: 'gloss bg-signal text-on-signal hover:bg-signal-600',
+  ink: 'gloss bg-ink text-paper hover:bg-ink-2',
+  outline:
+    'border border-line bg-paper text-ink hover:bg-paper-2 shadow-[0_1px_2px_rgb(0_0_0/0.07),inset_0_1px_0_rgb(255_255_255/0.06)]',
   ghost: 'text-ink-2 hover:bg-paper-2 hover:text-ink',
-  danger: 'bg-berry text-white hover:brightness-110',
+  danger: 'gloss bg-berry text-white hover:brightness-110',
 }
 
 const sizes: Record<Size, string> = {
-  sm: 'h-8 px-3 text-[13px] gap-1.5 rounded-lg',
-  md: 'h-10 px-4 text-sm gap-2 rounded-xl',
-  lg: 'h-12 px-6 text-[15px] gap-2 rounded-xl',
+  sm: 'h-8 px-2.5 text-[13px] gap-1.5 rounded-md',
+  md: 'h-9 px-3.5 text-sm gap-2 rounded-md',
+  lg: 'h-11 px-5 text-[15px] gap-2 rounded-md',
 }
 
 export function buttonClass(variant: Variant = 'primary', size: Size = 'md', extra?: string) {
@@ -61,8 +62,8 @@ export function ButtonLink({ variant, size, className, icon, children, ...rest }
 // ---------------------------------------------------------------- form fields
 
 const fieldBase =
-  'w-full rounded-xl border border-line bg-surface px-3.5 text-sm text-ink placeholder:text-muted/70 transition ' +
-  'focus:border-ink/40 focus:outline-none focus:ring-4 focus:ring-signal/10 disabled:opacity-60'
+  'w-full rounded-md border border-line bg-paper px-3 text-sm text-ink placeholder:text-muted/70 transition ' +
+  'focus:border-signal/60 focus:outline-none focus:ring-3 focus:ring-signal/20 disabled:opacity-60'
 
 interface FieldProps {
   label?: string
@@ -123,7 +124,7 @@ type Tone = 'neutral' | 'signal' | 'forest' | 'cobalt' | 'berry' | 'amber' | 'in
 
 const tones: Record<Tone, string> = {
   neutral: 'bg-paper-2 text-ink-2 ring-line',
-  signal: 'bg-signal-50 text-signal-600 ring-signal/20',
+  signal: 'bg-signal-50 text-signal-ink ring-signal/25',
   forest: 'bg-forest-50 text-forest ring-forest/20',
   cobalt: 'bg-cobalt-50 text-cobalt ring-cobalt/20',
   berry: 'bg-berry-50 text-berry ring-berry/20',
@@ -133,7 +134,7 @@ const tones: Record<Tone, string> = {
 
 export function Badge({ tone = 'neutral', children, dot, className }: { tone?: Tone; children: ReactNode; dot?: boolean; className?: string }) {
   return (
-    <span className={clsx('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[12px] font-medium ring-1 ring-inset', tones[tone], className)}>
+    <span className={clsx('inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 font-mono text-[11px] font-medium uppercase tracking-wider ring-1 ring-inset', tones[tone], className)}>
       {dot && <span className="size-1.5 rounded-full bg-current" />}
       {children}
     </span>
@@ -202,8 +203,8 @@ export function PageHeader({ eyebrow, title, description, actions }: { eyebrow?:
   return (
     <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="animate-rise">
-        {eyebrow && <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted">{eyebrow}</p>}
-        <h1 className="text-3xl font-bold sm:text-[2.2rem]">{title}</h1>
+        {eyebrow && <p className="eyebrow mb-3">{eyebrow}</p>}
+        <h1 className="text-3xl font-semibold sm:text-[2.5rem] sm:leading-[1.1]">{title}</h1>
         {description && <p className="mt-2 max-w-2xl text-[15px] text-muted">{description}</p>}
       </div>
       {actions && <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>}
@@ -215,18 +216,17 @@ export function Stat({ label, value, hint, accent }: { label: string; value: Rea
   if (accent) {
     // Not a <Card>: its bg-surface would win the cascade over an override class.
     return (
-      <div className="relative overflow-hidden rounded-[var(--radius-card)] bg-signal p-5 text-white shadow-soft">
-        <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-white/10" />
-        <p className="text-[13px] text-white/75">{label}</p>
-        <p className="mt-2 font-display text-3xl font-bold tracking-tight">{value}</p>
-        {hint && <p className="mt-1 truncate text-xs text-white/75">{hint}</p>}
+      <div className="relative overflow-hidden rounded-[var(--radius-card)] gloss bg-signal p-5 text-on-signal">
+        <p className="font-mono text-[11px] uppercase tracking-wider opacity-80">{label}</p>
+        <p className="mt-3 font-mono text-3xl font-bold tracking-tight">{value}</p>
+        {hint && <p className="mt-1 truncate text-xs opacity-80">{hint}</p>}
       </div>
     )
   }
   return (
     <Card className="p-5">
-      <p className="text-[13px] text-muted">{label}</p>
-      <p className="mt-2 font-display text-3xl font-bold tracking-tight">{value}</p>
+      <p className="font-mono text-[11px] uppercase tracking-wider text-muted">{label}</p>
+      <p className="mt-3 font-mono text-3xl font-bold tracking-tight">{value}</p>
       {hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
     </Card>
   )
@@ -257,7 +257,7 @@ export function Modal({ open, onClose, title, description, children, wide }: { o
 
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-0 backdrop-blur-[2px] sm:items-center sm:p-6" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 backdrop-blur-[3px] sm:items-center sm:p-6" onMouseDown={onClose}>
       <div
         role="dialog"
         aria-modal="true"

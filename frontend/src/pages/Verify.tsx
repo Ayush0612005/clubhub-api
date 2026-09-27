@@ -31,11 +31,11 @@ export default function Verify() {
         )}
         {result.data && (
           <div className="animate-rise overflow-hidden rounded-3xl border border-line bg-surface shadow-lift">
-            <div className={clsx('flex items-center gap-3 px-8 py-5 text-white', result.data.valid ? 'bg-forest' : 'bg-berry')}>
+            <div className={clsx('flex items-center gap-3 px-8 py-5 text-paper', result.data.valid ? 'bg-forest' : 'bg-berry')}>
               {result.data.valid ? <BadgeCheck className="size-7" /> : <ShieldX className="size-7" />}
               <div>
                 <p className="font-display text-lg font-bold">{result.data.valid ? 'Verified certificate' : 'Certificate revoked'}</p>
-                <p className="text-sm text-white/80">
+                <p className="text-sm text-paper/80">
                   {result.data.valid ? `Issued by ${result.data.clubName}` : `Revoked on ${fmt.date(result.data.revokedAt!)}`}
                 </p>
               </div>

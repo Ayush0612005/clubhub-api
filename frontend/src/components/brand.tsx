@@ -20,8 +20,13 @@ export function Logo({ className, compact }: { className?: string; compact?: boo
 const THEME_KEY = 'clubhub.theme'
 
 export function applyStoredTheme() {
-  const stored = localStorage.getItem(THEME_KEY)
-  const dark = stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches
+  let stored: string | null = null
+  try {
+    stored = localStorage.getItem(THEME_KEY)
+  } catch {
+    // storage blocked: fall back to the default
+  }
+  const dark = stored !== 'light' // dark is the brand default
   document.documentElement.classList.toggle('dark', dark)
 }
 
