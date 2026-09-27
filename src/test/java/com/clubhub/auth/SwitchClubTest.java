@@ -67,6 +67,18 @@ class SwitchClubTest {
     }
 
     @Test
+    void onlyAClubScopedTokenOpensClubEndpoints() throws Exception {
+        // plain login token: authenticated, but no active club
+        mvc.perform(get("/api/club/profile").header("Authorization", bearer(ownerLogin)))
+                .andExpect(status().isForbidden());
+
+        String switched = switchClub(ownerLogin, CLUB).andReturn().getResponse().getContentAsString();
+        mvc.perform(get("/api/club/profile").header("Authorization", bearer(switched)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.displayName").value("Switch Club"));
+    }
+
+    @Test
     void nonMemberAndUnknownClubGetTheSame403() throws Exception {
         String notMember = switchClub(outsiderLogin, CLUB).andExpect(status().isForbidden())
                 .andReturn().getResponse().getContentAsString();

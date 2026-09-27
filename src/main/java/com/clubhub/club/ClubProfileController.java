@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Club-scoped: every request needs X-Tenant-ID (enforced by TenantFilter on /api/club/**). */
+/** Club-scoped: the club comes from the caller's access token (enforced by TenantFilter on /api/club/**). */
 @RestController
 @RequestMapping("/api/club/profile")
 public class ClubProfileController {

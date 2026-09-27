@@ -29,7 +29,7 @@ class SecurityRulesTest {
         mvc.perform(get("/api/platform/tenants"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(header().string("WWW-Authenticate", org.hamcrest.Matchers.startsWith("Bearer")));
-        mvc.perform(get("/api/club/profile").header("X-Tenant-ID", "anything"))
+        mvc.perform(get("/api/club/profile"))
                 .andExpect(status().isUnauthorized());
         mvc.perform(get("/api/auth/me")).andExpect(status().isUnauthorized());
     }

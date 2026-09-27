@@ -1,5 +1,7 @@
 package com.clubhub.tenancy;
 
+import com.clubhub.membership.MembershipRepository;
+import com.clubhub.security.JwtTokenService;
 import com.clubhub.tenant.Tenant;
 import com.clubhub.tenant.TenantRepository;
 import jakarta.servlet.FilterChain;
@@ -7,28 +9,39 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
- * For every /api/club/** request: resolve the club, reject unknown/suspended ones,
- * and run the rest of the request inside that club's TenantContext.
- * Platform endpoints (/api/platform/**) and actuator are left untouched.
+ * For every /api/club/** request: take the club from the VERIFIED access token (tid claim),
+ * re-check that the caller is still a member of that (active) club, then run the rest of the
+ * request inside that club's TenantContext.
+ *
+ * Runs after the Spring Security filter chain (security is registered at order -100, this bean
+ * filter at the default lowest precedence), so authentication has already happened.
+ *
+ * The membership is re-checked on every request instead of trusting the token alone: removing a
+ * member takes effect immediately rather than after their access token expires. It costs one
+ * indexed lookup per request; Phase 7 puts a Redis cache in front of it.
  */
 @Component
 public class TenantFilter extends OncePerRequestFilter {
 
     public static final String CLUB_API_PREFIX = "/api/club/";
 
-    private final TenantResolver tenantResolver;
     private final TenantRepository tenantRepository;
+    private final MembershipRepository membershipRepository;
 
-    public TenantFilter(TenantResolver tenantResolver, TenantRepository tenantRepository) {
-        this.tenantResolver = tenantResolver;
+    public TenantFilter(TenantRepository tenantRepository, MembershipRepository membershipRepository) {
         this.tenantRepository = tenantRepository;
+        this.membershipRepository = membershipRepository;
     }
 
     @Override
@@ -40,19 +53,26 @@ public class TenantFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
 
-        Optional<String> slug = tenantResolver.resolveSlug(request);
-        if (slug.isEmpty()) {
-            writeProblem(response, HttpStatus.BAD_REQUEST, "Missing " + HeaderTenantResolver.HEADER + " header");
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (!(auth instanceof JwtAuthenticationToken jwtAuth)) {
+            writeProblem(response, HttpStatus.UNAUTHORIZED, "Authentication required");
             return;
         }
 
-        // Validate format first: never query (or later, cache) arbitrary client input
-        Optional<Tenant> tenant = Tenant.SLUG_PATTERN.matcher(slug.get()).matches()
-                ? tenantRepository.findBySlug(slug.get())
-                : Optional.empty();
+        Optional<UUID> tenantId = parseUuid(jwtAuth.getToken().getClaimAsString(JwtTokenService.CLAIM_TENANT_ID));
+        if (tenantId.isEmpty()) {
+            writeProblem(response, HttpStatus.FORBIDDEN, "No active club: call POST /api/auth/switch-club first");
+            return;
+        }
 
-        if (tenant.isEmpty()) {
-            writeProblem(response, HttpStatus.NOT_FOUND, "Unknown club");
+        Optional<Tenant> tenant = tenantRepository.findById(tenantId.get());
+        Optional<UUID> userId = parseUuid(jwtAuth.getToken().getSubject());
+        boolean member = tenant.isPresent() && userId.isPresent()
+                && membershipRepository.findByUserIdAndTenantId(userId.get(), tenantId.get()).isPresent();
+
+        if (!member) {
+            // same answer for unknown club and non-member: nothing to learn by probing ids
+            writeProblem(response, HttpStatus.FORBIDDEN, "You are not a member of this club");
             return;
         }
         if (!tenant.get().isActive()) {
@@ -69,6 +89,17 @@ public class TenantFilter extends OncePerRequestFilter {
             throw e;
         } catch (Exception e) {
             throw new ServletException(e);
+        }
+    }
+
+    private static Optional<UUID> parseUuid(String value) {
+        if (value == null) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(UUID.fromString(value));
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
         }
     }
 

@@ -1,5 +1,7 @@
 package com.clubhub;
 
+import com.clubhub.tenant.TenantRepository;
+import com.clubhub.user.UserRepository;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -7,13 +9,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
-import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.UUID;
+
+import static com.clubhub.support.TestAuth.asUser;
+import static com.clubhub.support.TestAuth.inClub;
+import static com.clubhub.support.TestAuth.newUserId;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -21,41 +26,45 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Phase 1 acceptance test: drives the public HTTP API only and proves that one club
- * can never see or change another club's data.
+ * Acceptance test: drives the HTTP API and proves one club can never see or change another
+ * club's data, including when an Alpha member presents a token pointing at Beta.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-@WithMockUser // endpoints require authentication now; real token flow is covered by SecurityRulesTest
 class TenantIsolationTest {
-
-    private static final String TENANT = "X-Tenant-ID";
 
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
-    @Autowired com.clubhub.user.UserRepository users;
+    @Autowired UserRepository users;
+    @Autowired TenantRepository tenants;
 
-    java.util.UUID ownerId;
+    UUID alphaAdmin;
+    UUID betaAdmin;
+    UUID alphaId;
+    UUID betaId;
 
     @BeforeAll
     void onboardTwoClubsThroughTheApi() throws Exception {
-        ownerId = com.clubhub.support.TestAuth.newUserId(users);
-        createClub("iso_alpha", "Alpha Society");
-        createClub("iso_beta", "Beta Society");
+        alphaAdmin = newUserId(users);
+        betaAdmin = newUserId(users);
+        createClub(alphaAdmin, "iso_alpha", "Alpha Society");
+        createClub(betaAdmin, "iso_beta", "Beta Society");
+        alphaId = tenants.findBySlug("iso_alpha").orElseThrow().getId();
+        betaId = tenants.findBySlug("iso_beta").orElseThrow().getId();
     }
 
     @Test
     void writesInOneClubAreInvisibleToAnother() throws Exception {
-        mvc.perform(put("/api/club/profile").header(TENANT, "iso_alpha")
+        mvc.perform(put("/api/club/profile").with(inClub(alphaAdmin, alphaId, "iso_alpha"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"displayName":"Alpha Secret Plans","contactEmail":"alpha@srmist.edu.in"}"""))
                 .andExpect(status().isOk());
 
         // Beta still sees only its own, untouched profile
-        mvc.perform(get("/api/club/profile").header(TENANT, "iso_beta"))
+        mvc.perform(get("/api/club/profile").with(inClub(betaAdmin, betaId, "iso_beta")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.displayName").value("Beta Society"))
                 .andExpect(jsonPath("$.contactEmail").doesNotExist());
@@ -68,12 +77,27 @@ class TenantIsolationTest {
     }
 
     @Test
-    void unknownClubIs404AndTouchesNothing() throws Exception {
-        mvc.perform(put("/api/club/profile").header(TENANT, "iso_gamma")
+    void alphaMemberCannotReachBetaEvenWithBetasIdInTheToken() throws Exception {
+        // what the old X-Tenant-ID header allowed: just point the request at another club
+        mvc.perform(get("/api/club/profile").with(inClub(alphaAdmin, betaId, "iso_beta")))
+                .andExpect(status().isForbidden());
+        mvc.perform(put("/api/club/profile").with(inClub(alphaAdmin, betaId, "iso_beta"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"displayName":"Hijacked"}"""))
+                .andExpect(status().isForbidden());
+
+        assertThat(jdbc.queryForObject("SELECT display_name FROM club_iso_beta.club_profile", String.class))
+                .isNotEqualTo("Hijacked");
+    }
+
+    @Test
+    void unknownClubIsRejectedAndTouchesNothing() throws Exception {
+        mvc.perform(put("/api/club/profile").with(inClub(alphaAdmin, UUID.randomUUID(), "iso_gamma"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"displayName":"Should never be stored"}"""))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isForbidden());
 
         Integer schemas = jdbc.queryForObject(
                 "SELECT count(*) FROM information_schema.schemata WHERE schema_name = 'club_iso_gamma'", Integer.class);
@@ -88,10 +112,8 @@ class TenantIsolationTest {
         assertThat(tables).isZero();
     }
 
-    private void createClub(String slug, String name) throws Exception {
-        mvc.perform(post("/api/platform/tenants")
-                        // called from @BeforeAll, where @WithMockUser does not apply: authenticate this request explicitly
-                        .with(com.clubhub.support.TestAuth.asUser(ownerId))
+    private void createClub(UUID ownerId, String slug, String name) throws Exception {
+        mvc.perform(post("/api/platform/tenants").with(asUser(ownerId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"slug":"%s","name":"%s"}""".formatted(slug, name)))
