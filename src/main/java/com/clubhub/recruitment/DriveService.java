@@ -1,5 +1,6 @@
 package com.clubhub.recruitment;
 
+import com.clubhub.audit.AuditService;
 import com.clubhub.common.ConflictException;
 import com.clubhub.common.NotFoundException;
 import com.clubhub.recruitment.DriveDtos.CreateDriveRequest;
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -21,9 +23,11 @@ import java.util.UUID;
 public class DriveService {
 
     private final DriveRepository drives;
+    private final AuditService audit;
 
-    public DriveService(DriveRepository drives) {
+    public DriveService(DriveRepository drives, AuditService audit) {
         this.drives = drives;
+        this.audit = audit;
     }
 
     @Transactional
@@ -33,7 +37,9 @@ public class DriveService {
         for (QuestionRequest q : request.questions()) {
             drive.addQuestion(q.prompt().strip(), q.required());
         }
-        return DriveResponse.from(drives.save(drive));
+        RecruitmentDrive saved = drives.save(drive);
+        audit.record("DRIVE_CREATED", "DRIVE", saved.getId(), Map.of("title", saved.getTitle()));
+        return DriveResponse.from(saved);
     }
 
     /** Plain members only see drives that have been published; drafts are for the core team. */
@@ -60,11 +66,13 @@ public class DriveService {
         if (target == DriveStatus.OPEN && drive.getClosesAt() != null && !Instant.now().isBefore(drive.getClosesAt())) {
             throw new ConflictException("The drive's deadline has already passed");
         }
+        DriveStatus previous = drive.getStatus();
         try {
             drive.changeStatus(target);
         } catch (IllegalStateException e) {
             throw new ConflictException(e.getMessage());
         }
+        audit.record("DRIVE_STATUS_CHANGED", "DRIVE", id, Map.of("from", previous.name(), "to", target.name()));
         return DriveResponse.from(drive);
     }
 }

@@ -1,5 +1,6 @@
 package com.clubhub.event;
 
+import com.clubhub.audit.AuditService;
 import com.clubhub.common.ConflictException;
 import com.clubhub.common.NotFoundException;
 import com.clubhub.event.EventDtos.CreateEventRequest;
@@ -39,10 +40,12 @@ public class EventService {
     private final TicketService tickets;
     private final DomainEventPublisher domainEvents;
     private final CurrentClub currentClub;
+    private final AuditService audit;
 
     public EventService(EventRepository events, EventRegistrationRepository registrations,
                         AttendanceRepository attendance, UserRepository users, TicketService tickets,
-                        DomainEventPublisher domainEvents, CurrentClub currentClub) {
+                        DomainEventPublisher domainEvents, CurrentClub currentClub, AuditService audit) {
+        this.audit = audit;
         this.events = events;
         this.registrations = registrations;
         this.attendance = attendance;
@@ -70,6 +73,7 @@ public class EventService {
     public EventResponse create(CreateEventRequest r, UUID createdBy) {
         Event event = events.save(new Event(r.title().strip(), r.description(), r.venue().strip(),
                 r.startsAt(), r.endsAt(), r.capacity(), r.visibility(), createdBy));
+        audit.record("EVENT_CREATED", "EVENT", event.getId(), Map.of("title", event.getTitle()));
         return EventResponse.from(event, 0);
     }
 
@@ -104,6 +108,7 @@ public class EventService {
         } catch (IllegalStateException e) {
             throw new ConflictException(e.getMessage());
         }
+        audit.record("EVENT_PUBLISHED", "EVENT", eventId, Map.of("title", event.getTitle()));
         // the notification consumer fans this out to every member of the club
         domainEvents.publish(new DomainEvent.EventPublished(UUID.randomUUID(), DomainEvent.Club.of(currentClub.get()),
                 Instant.now(), event.getId(), event.getTitle(), event.getVenue(), event.getStartsAt()));
@@ -118,6 +123,7 @@ public class EventService {
         } catch (IllegalStateException e) {
             throw new ConflictException(e.getMessage());
         }
+        audit.record("EVENT_CANCELLED", "EVENT", eventId, Map.of("title", event.getTitle()));
         return EventResponse.from(event, registrations.countByEventId(eventId));
     }
 
