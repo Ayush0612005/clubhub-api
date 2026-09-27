@@ -10,6 +10,7 @@ import tools.jackson.databind.json.JsonMapper;
  * A failure is retried, then the record goes to the dead-letter topic (see KafkaConfig).
  */
 @Component
+@OnKafkaTransport
 public class NotificationConsumer {
 
     private final NotificationService notifications;

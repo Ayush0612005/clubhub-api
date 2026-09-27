@@ -1,52 +1,34 @@
 package com.clubhub.notification;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.event.TransactionPhase;
-import org.springframework.transaction.event.TransactionalEventListener;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Services call {@link #publish} inside their transaction; the event goes to Kafka only AFTER
- * that transaction commits. So a rolled-back change never produces a notification.
+ * Services call {@link #publish} inside their transaction. The event is only handed on AFTER that
+ * transaction commits, so a rolled-back change never produces a notification.
  *
- * Trade-off (known, accepted for now): if the process dies between the DB commit and the Kafka
- * send, that one event is lost. The full fix is a transactional outbox table relayed to Kafka;
- * for notifications a rare miss is acceptable, for money it would not be.
+ * Where it goes next is a deployment choice ({@code clubhub.events.transport}):
+ * <ul>
+ *   <li>{@code kafka} (default): {@link KafkaEventRelay} sends it to the {@link #TOPIC} topic, read by
+ *       independent consumer groups for the inbox and for email (retries, dead-letter topic, scales
+ *       to many instances);</li>
+ *   <li>{@code in-process}: {@link InProcessEventRelay} calls the same handlers directly, for a single
+ *       instance without a broker (free hosting).</li>
+ * </ul>
+ * Services never know which one is active.
  */
 @Component
 public class DomainEventPublisher {
 
     public static final String TOPIC = "clubhub.domain-events";
 
-    private static final Logger log = LoggerFactory.getLogger(DomainEventPublisher.class);
-
     private final ApplicationEventPublisher springEvents;
-    private final KafkaTemplate<String, String> kafka;
-    private final JsonMapper json;
 
-    public DomainEventPublisher(ApplicationEventPublisher springEvents, KafkaTemplate<String, String> kafka,
-                                JsonMapper json) {
+    public DomainEventPublisher(ApplicationEventPublisher springEvents) {
         this.springEvents = springEvents;
-        this.kafka = kafka;
-        this.json = json;
     }
 
     public void publish(DomainEvent event) {
         springEvents.publishEvent(event);
-    }
-
-    /** Key = club id: all events of one club land on one partition, in order. */
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
-    void relayToKafka(DomainEvent event) {
-        kafka.send(TOPIC, event.club().tenantId().toString(), json.writeValueAsString(event))
-                .whenComplete((result, error) -> {
-                    if (error != null) {
-                        log.error("Could not publish {} {}", event.getClass().getSimpleName(), event.id(), error);
-                    }
-                });
     }
 }

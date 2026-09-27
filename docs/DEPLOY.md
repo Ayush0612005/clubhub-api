@@ -4,8 +4,8 @@ Every service below has a free tier that needs **no credit card**. Nothing here 
 
 ```
  browser ──► Vercel (React, CDN) ──/api/*──► Render (Spring Boot, Docker) ──► Neon (PostgreSQL)
-    │                                            │  ├──► Upstash (Redis, rate limits)
-    └──────────── wss://…/ws (live) ─────────────┘  └──► Aiven (Kafka, domain events)
+    │                                            │  └──► Upstash (Redis, rate limits)
+    └──────────── wss://…/ws (live) ─────────────┘     (domain events delivered in-process)
 ```
 
 | Piece | Service | Free tier (Sep 2026) | Trade-off |
@@ -14,7 +14,7 @@ Every service below has a free tier that needs **no credit card**. Nothing here 
 | API | [Render](https://render.com) free web service | 512 MB, 750 h/month | **Sleeps after 15 min idle**; first request then takes ~30–60 s |
 | PostgreSQL | [Neon](https://neon.tech) free | 0.5 GB | Compute pauses when idle (wakes in ~1 s) |
 | Redis | [Upstash](https://upstash.com) free | 256 MB, 500K commands/month | Enough for rate limiting |
-| Kafka | [Aiven](https://aiven.io/free-kafka) free | 5 topics × 2 partitions, 250 KiB/s | Powers off when idle; restart it from the console |
+| Events | in-process (no broker) | | One instance, no retries/DLT; Kafka is optional via the `cloud-kafka` profile |
 | Files / email | not used | | Poster uploads need S3; email stays in `log` mode |
 
 Free tiers change. Check each pricing page before you rely on it.
@@ -38,18 +38,17 @@ Flyway creates every table on first start; each new club gets its own schema aut
 2. Copy the **Redis URL** from the "Connect" tab. It looks like
    `rediss://default:<password>@<name>.upstash.io:6379` (note `rediss`, with TLS).
 
-## 3. Kafka: Aiven
+## 3. Kafka (optional)
 
-1. Sign up at aiven.io → **Create service** → Apache Kafka → **Free plan** → any nearby region.
-2. When it is running, open the service **Overview** and download **Access key** (`service.key`),
-   **Access certificate** (`service.cert`) and **CA certificate** (`ca.pem`). Copy the **Service URI**
-   (`<name>.aivencloud.com:<port>`).
-3. **Topics** → create `clubhub.domain-events` and `clubhub.domain-events-dlt`, **2 partitions** each
-   (the app also tries to create them itself; creating them here avoids depending on that).
+The free deployment runs **without a broker**: `application-cloud.yaml` sets
+`clubhub.events.transport=in-process`, so after each commit the app calls the inbox, WebSocket and
+email handlers directly (`InProcessEventRelay`). Local development, Docker Compose and the test suite
+still use real Kafka. (Aiven's free Kafka tier was "not available due to high demand" in Sep 2026.)
 
-If the service shows "Powered off" after a quiet period, press **Power on**. While Kafka is off,
-requests still succeed (events are published after the database commit), but each publish waits up
-to 5 s before giving up and that notification is not delivered.
+To use a hosted Kafka later (e.g. Aiven): create topics `clubhub.domain-events` and
+`clubhub.domain-events-dlt` with 2 partitions, set `SPRING_PROFILES_ACTIVE=cloud,cloud-kafka` and add
+`KAFKA_BOOTSTRAP_SERVERS`, `KAFKA_ACCESS_KEY`, `KAFKA_ACCESS_CERT`, `KAFKA_CA_CERT` (contents of the
+service's `service.key`, `service.cert`, `ca.pem`). See `application-cloud-kafka.yaml`.
 
 ## 4. API: Render
 
@@ -61,8 +60,6 @@ to 5 s before giving up and that notification is not delivered.
    |---|---|
    | `DATABASE_URL` · `DATABASE_USERNAME` · `DATABASE_PASSWORD` | from Neon (step 1) |
    | `REDIS_URL` | from Upstash (step 2) |
-   | `KAFKA_BOOTSTRAP_SERVERS` | Aiven service URI |
-   | `KAFKA_ACCESS_KEY` · `KAFKA_ACCESS_CERT` · `KAFKA_CA_CERT` | full contents of `service.key`, `service.cert`, `ca.pem` (paste including the `-----BEGIN…` lines) |
    | `CLUBHUB_APP_URL` | your Vercel URL, e.g. `https://clubhub.vercel.app` (fill in after step 5; any value works for now) |
    | `CLUBHUB_ALLOWED_ORIGINS` | `https://clubhub.vercel.app,https://clubhub-*.vercel.app` |
    | `CLUBHUB_ADMIN_EMAIL` | the email you will register with (becomes platform admin) |
@@ -97,7 +94,7 @@ instance awake during a demo or an event day. Render's 750 free hours cover one 
 - **Why not run the API on Vercel?** Vercel runs short-lived functions. ClubHub needs a long-running
   JVM: WebSocket sessions, Kafka consumers that poll continuously, a connection pool.
 - **Why a `cloud` Spring profile?** Local dev and tests use plain Docker services; the free cloud
-  services need TLS for Redis, mutual TLS for Kafka and a small connection pool.
+  services need TLS for Redis, a small connection pool and no broker (events in-process).
   [`application-cloud.yaml`](../src/main/resources/application-cloud.yaml) holds exactly those differences, all read from env vars.
 - **512 MB:** the JVM is tuned for it in `render.yaml` (serial GC, capped heap/metaspace, small
   stacks). `docker compose --profile full` runs the API under the same 512 MB limit to prove it fits.

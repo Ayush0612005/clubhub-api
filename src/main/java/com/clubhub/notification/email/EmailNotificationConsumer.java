@@ -2,6 +2,7 @@ package com.clubhub.notification.email;
 
 import com.clubhub.notification.DomainEvent;
 import com.clubhub.notification.DomainEventPublisher;
+import com.clubhub.notification.OnKafkaTransport;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
@@ -11,6 +12,7 @@ import tools.jackson.databind.json.JsonMapper;
  * so a slow or failing email provider (retries, DLT) never delays in-app notifications.
  */
 @Component
+@OnKafkaTransport
 public class EmailNotificationConsumer {
 
     private final EmailNotificationService emails;
