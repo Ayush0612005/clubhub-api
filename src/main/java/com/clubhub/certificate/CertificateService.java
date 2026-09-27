@@ -10,6 +10,8 @@ import com.clubhub.event.AttendanceRepository;
 import com.clubhub.event.Event;
 import com.clubhub.event.EventRepository;
 import com.clubhub.event.EventStatus;
+import com.clubhub.notification.DomainEvent;
+import com.clubhub.notification.DomainEventPublisher;
 import com.clubhub.tenancy.TenantContext;
 import com.clubhub.tenant.Tenant;
 import com.clubhub.tenant.TenantRepository;
@@ -19,6 +21,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
@@ -42,11 +45,13 @@ public class CertificateService {
     private final TenantRepository tenants;
     private final CertificatePdfRenderer renderer;
     private final String publicBaseUrl;
+    private final DomainEventPublisher domainEvents;
 
     public CertificateService(CertificateRepository certificates, EventRepository events,
                               AttendanceRepository attendance, UserRepository users, TenantRepository tenants,
-                              CertificatePdfRenderer renderer,
+                              CertificatePdfRenderer renderer, DomainEventPublisher domainEvents,
                               @Value("${clubhub.public-base-url}") String publicBaseUrl) {
+        this.domainEvents = domainEvents;
         this.certificates = certificates;
         this.events = events;
         this.attendance = attendance;
@@ -85,6 +90,10 @@ public class CertificateService {
                         byId.get(userId).getFullName(), description, issuerId))
                 .toList();
         certificates.saveAll(fresh);
+
+        DomainEvent.Club club = DomainEvent.Club.of(currentClub());
+        fresh.forEach(c -> domainEvents.publish(new DomainEvent.CertificateIssued(UUID.randomUUID(), club,
+                Instant.now(), c.getUserId(), c.getId(), c.getTitle())));
         return new IssueResult(eventId, fresh.size(), alreadyIssued.size());
     }
 

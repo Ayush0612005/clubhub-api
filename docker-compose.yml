@@ -16,5 +16,12 @@ services:
       timeout: 3s
       retries: 10
 
+  kafka:
+    # single-node KRaft broker (no ZooKeeper); the image's defaults listen on localhost:9092
+    image: apache/kafka:4.1.0
+    container_name: clubhub-kafka
+    ports:
+      - "9092:9092"
+
 volumes:
   pgdata:
