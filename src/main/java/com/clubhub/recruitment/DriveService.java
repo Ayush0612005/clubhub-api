@@ -3,6 +3,7 @@ package com.clubhub.recruitment;
 import com.clubhub.audit.AuditService;
 import com.clubhub.common.ConflictException;
 import com.clubhub.common.NotFoundException;
+import com.clubhub.plan.PlanService;
 import com.clubhub.recruitment.DriveDtos.CreateDriveRequest;
 import com.clubhub.recruitment.DriveDtos.DriveResponse;
 import com.clubhub.recruitment.DriveDtos.DriveSummary;
@@ -24,10 +25,12 @@ public class DriveService {
 
     private final DriveRepository drives;
     private final AuditService audit;
+    private final PlanService plans;
 
-    public DriveService(DriveRepository drives, AuditService audit) {
+    public DriveService(DriveRepository drives, AuditService audit, PlanService plans) {
         this.drives = drives;
         this.audit = audit;
+        this.plans = plans;
     }
 
     @Transactional
@@ -65,6 +68,9 @@ public class DriveService {
                 .orElseThrow(() -> new NotFoundException("Drive not found"));
         if (target == DriveStatus.OPEN && drive.getClosesAt() != null && !Instant.now().isBefore(drive.getClosesAt())) {
             throw new ConflictException("The drive's deadline has already passed");
+        }
+        if (target == DriveStatus.OPEN && drive.getStatus() != DriveStatus.OPEN) {
+            plans.requireRoom(PlanService.Limit.OPEN_DRIVES, drives.countByStatus(DriveStatus.OPEN));
         }
         DriveStatus previous = drive.getStatus();
         try {

@@ -13,6 +13,8 @@ public interface DriveRepository extends JpaRepository<RecruitmentDrive, Long> {
 
     List<RecruitmentDrive> findAllByStatusOrderByCreatedAtDesc(DriveStatus status);
 
+    long countByStatus(DriveStatus status);
+
     /** Loads questions in the same query (fetch join) instead of a second lazy SELECT. */
     @EntityGraph(attributePaths = "questions")
     Optional<RecruitmentDrive> findWithQuestionsById(Long id);

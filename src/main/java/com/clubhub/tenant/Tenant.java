@@ -1,5 +1,6 @@
 package com.clubhub.tenant;
 
+import com.clubhub.plan.Plan;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -42,17 +43,32 @@ public class Tenant {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private Plan plan;
+
     protected Tenant() {
         // for JPA
     }
 
     public Tenant(String slug, String name) {
+        this(slug, name, Plan.FREE);
+    }
+
+    public Tenant(String slug, String name, Plan plan) {
         this.slug = slug;
         this.name = name;
         this.schemaName = SCHEMA_PREFIX + slug;
         this.status = TenantStatus.ACTIVE;
         this.createdAt = Instant.now();
+        this.plan = plan;
     }
+
+    public void changePlan(Plan newPlan) {
+        this.plan = newPlan;
+    }
+
+    public Plan getPlan() { return plan; }
 
     public UUID getId() { return id; }
     public String getSlug() { return slug; }

@@ -8,6 +8,8 @@ import com.clubhub.file.FileDtos.FileView;
 import com.clubhub.file.FileDtos.UploadRequest;
 import com.clubhub.file.FileDtos.UploadTicket;
 import com.clubhub.file.FileStorage.ObjectInfo;
+import com.clubhub.plan.Feature;
+import com.clubhub.plan.PlanService;
 import com.clubhub.tenancy.TenantContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,13 +34,15 @@ public class FileService {
     private final EventRepository events;
     private final FileStorage storage;
     private final StorageProperties props;
+    private final PlanService plans;
 
     public FileService(StoredFileRepository files, EventRepository events, FileStorage storage,
-                       StorageProperties props) {
+                       StorageProperties props, PlanService plans) {
         this.files = files;
         this.events = events;
         this.storage = storage;
         this.props = props;
+        this.plans = plans;
     }
 
     @Transactional
@@ -52,6 +56,7 @@ public class FileService {
             throw new IllegalArgumentException("File is too large (max " + props.maxUploadBytes() / (1024 * 1024) + " MB)");
         }
         if (purpose == FilePurpose.EVENT_POSTER) {
+            plans.requireFeature(Feature.EVENT_POSTERS);
             if (request.eventId() == null) {
                 throw new IllegalArgumentException("eventId is required for an event poster");
             }

@@ -1,5 +1,6 @@
 package com.clubhub.tenant;
 
+import com.clubhub.plan.Plan;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -29,11 +30,12 @@ public final class TenantDtos {
             String ownerEmail) {
     }
 
-    public record TenantResponse(UUID id, String slug, String name, TenantStatus status, Instant createdAt) {
+    public record TenantResponse(UUID id, String slug, String name, TenantStatus status, Plan plan,
+                                 Instant createdAt) {
 
-        static TenantResponse from(Tenant tenant) {
+        public static TenantResponse from(Tenant tenant) {
             return new TenantResponse(tenant.getId(), tenant.getSlug(), tenant.getName(),
-                    tenant.getStatus(), tenant.getCreatedAt());
+                    tenant.getStatus(), tenant.getPlan(), tenant.getCreatedAt());
         }
     }
 }

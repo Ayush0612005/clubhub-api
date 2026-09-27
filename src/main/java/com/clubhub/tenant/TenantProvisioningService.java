@@ -5,7 +5,9 @@ import com.clubhub.club.ClubProfileRepository;
 import com.clubhub.membership.ClubRole;
 import com.clubhub.membership.Membership;
 import com.clubhub.membership.MembershipRepository;
+import com.clubhub.plan.Plan;
 import com.clubhub.tenancy.TenantContext;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
@@ -24,15 +26,18 @@ public class TenantProvisioningService {
     private final TenantSchemaMigrator schemaMigrator;
     private final ClubProfileRepository clubProfileRepository;
     private final MembershipRepository membershipRepository;
+    private final Plan defaultPlan;
 
     public TenantProvisioningService(TenantRepository tenantRepository,
                                      TenantSchemaMigrator schemaMigrator,
                                      ClubProfileRepository clubProfileRepository,
-                                     MembershipRepository membershipRepository) {
+                                     MembershipRepository membershipRepository,
+                                     @Value("${clubhub.plans.default-plan:FREE}") Plan defaultPlan) {
         this.tenantRepository = tenantRepository;
         this.schemaMigrator = schemaMigrator;
         this.clubProfileRepository = clubProfileRepository;
         this.membershipRepository = membershipRepository;
+        this.defaultPlan = defaultPlan;
     }
 
     public Tenant provision(String slug, String name) {
@@ -45,7 +50,7 @@ public class TenantProvisioningService {
             throw new TenantAlreadyExistsException(slug);
         }
 
-        Tenant tenant = new Tenant(slug, name);
+        Tenant tenant = new Tenant(slug, name, defaultPlan);
         schemaMigrator.migrate(tenant.getSchemaName());
         // seed the club's own data, written through the normal tenant-routed JPA path
         TenantContext.runAs(tenant.getSchemaName(), () -> clubProfileRepository.save(new ClubProfile(name)));

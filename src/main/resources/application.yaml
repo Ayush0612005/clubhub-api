@@ -30,6 +30,9 @@ clubhub:
     allowed-origins: ${CLUBHUB_ALLOWED_ORIGINS:http://localhost:5173}
     # frontend base URL used for links inside emails
     app-url: ${CLUBHUB_APP_URL:http://localhost:5173}
+  plans:
+    # plan given to newly created clubs (FREE or PRO)
+    default-plan: ${CLUBHUB_DEFAULT_PLAN:FREE}
   mail:
     # "log" (default: nothing is sent, only logged) or "ses" (Amazon SES, production)
     provider: ${CLUBHUB_MAIL_PROVIDER:log}

@@ -16,6 +16,9 @@ public interface EventRepository extends JpaRepository<Event, Long> {
 
     List<Event> findAllByOrderByStartsAtDesc();
 
+    /** Plan usage: events that haven't finished and weren't cancelled. */
+    long countByEndsAtAfterAndStatusNot(Instant now, EventStatus status);
+
     /**
      * SELECT ... FOR UPDATE on the event row. Registrations for the same event queue up behind
      * this lock, so "count < capacity, then insert" cannot oversell the last seat.
