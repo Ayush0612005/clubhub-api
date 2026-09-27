@@ -5,6 +5,9 @@
 ![Spring Boot 4.1](https://img.shields.io/badge/Spring%20Boot-4.1-6DB33F)
 ![PostgreSQL 18](https://img.shields.io/badge/PostgreSQL-18-336791)
 
+**Live demo:** [clubhub-mocha.vercel.app](https://clubhub-mocha.vercel.app) · API: [clubhub-api-9sw2.onrender.com](https://clubhub-api-9sw2.onrender.com/swagger-ui.html)
+(free tier: the API sleeps when idle, so the first request can take ~50 s)
+
 Multi-tenant SaaS for college clubs at SRM KTR. Every club is a tenant with its own
 isolated PostgreSQL schema: recruitment, events with QR attendance, certificates and
 notifications, all running on one shared deployment, with a React web app on top.
