@@ -15,6 +15,14 @@ spring:
   flyway:
     schemas: public
     locations: classpath:db/migration/public
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      auto-offset-reset: earliest
+    producer:
+      properties:
+        # fail fast instead of blocking a request thread for 60 s when the broker is down
+        max.block.ms: 5000
 
 clubhub:
   # Absolute base URL printed on certificates (verification link + QR). Production: https://api.<domain>

@@ -7,7 +7,10 @@ import com.clubhub.event.EventDtos.EventResponse;
 import com.clubhub.event.EventDtos.Registrant;
 import com.clubhub.event.EventDtos.RegistrationResponse;
 import com.clubhub.event.EventDtos.TicketResponse;
+import com.clubhub.notification.DomainEvent;
+import com.clubhub.notification.DomainEventPublisher;
 import com.clubhub.tenancy.TenantContext;
+import com.clubhub.tenant.CurrentClub;
 import com.clubhub.user.User;
 import com.clubhub.user.UserRepository;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -34,14 +37,19 @@ public class EventService {
     private final AttendanceRepository attendance;
     private final UserRepository users;
     private final TicketService tickets;
+    private final DomainEventPublisher domainEvents;
+    private final CurrentClub currentClub;
 
     public EventService(EventRepository events, EventRegistrationRepository registrations,
-                        AttendanceRepository attendance, UserRepository users, TicketService tickets) {
+                        AttendanceRepository attendance, UserRepository users, TicketService tickets,
+                        DomainEventPublisher domainEvents, CurrentClub currentClub) {
         this.events = events;
         this.registrations = registrations;
         this.attendance = attendance;
         this.users = users;
         this.tickets = tickets;
+        this.domainEvents = domainEvents;
+        this.currentClub = currentClub;
     }
 
     /** The caller's personal signed ticket; only registered attendees of a live event get one. */
@@ -96,6 +104,9 @@ public class EventService {
         } catch (IllegalStateException e) {
             throw new ConflictException(e.getMessage());
         }
+        // the notification consumer fans this out to every member of the club
+        domainEvents.publish(new DomainEvent.EventPublished(UUID.randomUUID(), DomainEvent.Club.of(currentClub.get()),
+                Instant.now(), event.getId(), event.getTitle(), event.getVenue(), event.getStartsAt()));
         return EventResponse.from(event, registrations.countByEventId(eventId));
     }
 

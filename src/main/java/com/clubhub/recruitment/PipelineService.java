@@ -6,11 +6,14 @@ import com.clubhub.common.PageResponse;
 import com.clubhub.membership.ClubRole;
 import com.clubhub.membership.Membership;
 import com.clubhub.membership.MembershipRepository;
+import com.clubhub.notification.DomainEvent;
+import com.clubhub.notification.DomainEventPublisher;
 import com.clubhub.recruitment.PipelineDtos.AnswerView;
 import com.clubhub.recruitment.PipelineDtos.Applicant;
 import com.clubhub.recruitment.PipelineDtos.ApplicationDetail;
 import com.clubhub.recruitment.PipelineDtos.ApplicationSummary;
 import com.clubhub.recruitment.PipelineDtos.StatusChangeView;
+import com.clubhub.tenant.CurrentClub;
 import com.clubhub.user.User;
 import com.clubhub.user.UserRepository;
 import org.springframework.data.domain.Page;
@@ -18,6 +21,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -36,15 +40,19 @@ public class PipelineService {
     private final StatusChangeRepository statusChanges;
     private final UserRepository users;
     private final MembershipRepository memberships;
+    private final DomainEventPublisher events;
+    private final CurrentClub currentClub;
 
     public PipelineService(DriveRepository drives, ApplicationRepository applications,
                            StatusChangeRepository statusChanges, UserRepository users,
-                           MembershipRepository memberships) {
+                           MembershipRepository memberships, DomainEventPublisher events, CurrentClub currentClub) {
         this.drives = drives;
         this.applications = applications;
         this.statusChanges = statusChanges;
         this.users = users;
         this.memberships = memberships;
+        this.events = events;
+        this.currentClub = currentClub;
     }
 
     @Transactional(readOnly = true)
@@ -93,6 +101,11 @@ public class PipelineService {
                 && memberships.findByUserIdAndTenantId(application.getApplicantUserId(), tenantId).isEmpty()) {
             memberships.save(new Membership(application.getApplicantUserId(), tenantId, ClubRole.MEMBER));
         }
+        String driveTitle = drives.findById(application.getDriveId()).map(RecruitmentDrive::getTitle).orElse("");
+        // sent to Kafka only if this transaction commits
+        events.publish(new DomainEvent.ApplicationStatusChanged(UUID.randomUUID(),
+                DomainEvent.Club.of(currentClub.get()), Instant.now(), application.getApplicantUserId(),
+                applicationId, driveTitle, target.name()));
         return detail(application);
     }
 
