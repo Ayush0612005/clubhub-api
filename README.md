@@ -9,8 +9,8 @@ Multi-tenant SaaS backend for college clubs at SRM KTR. Every club is a tenant w
 isolated PostgreSQL schema: recruitment, events with QR attendance, certificates and
 notifications, all running on one shared deployment.
 
-> **Status:** Phases 1–4 complete (tenancy core, auth + RBAC, recruitment, events + QR attendance).
-> File uploads + certificates is next.
+> **Status:** Phases 1–5 complete (tenancy core, auth + RBAC, recruitment, events + QR attendance,
+> S3 files + PDF certificates). Notifications (Kafka → WebSocket + email) is next.
 > See [Roadmap](#roadmap).
 
 ## Architecture
@@ -65,6 +65,28 @@ door:    POST /api/club/events/{id}/check-ins {ticket}  →  verify signature, c
   application check, even for two doors scanning the same ticket at the same moment.
 - Check-in opens 1 hour before the start and closes at the end. Walk-ins can be checked in by email.
 
+### Files (S3) and certificates
+
+```
+upload:   POST /api/club/files/uploads   → PENDING row + pre-signed PUT URL (10 min, type + size signed)
+          client PUTs bytes directly to S3 (the API never proxies file bytes)
+          POST /api/club/files/{id}/confirm → HeadObject: exists, same size + type? → READY, attached
+download: GET  .../events/{id}/poster     → 302 to a pre-signed GET URL (5 min)
+
+certificates: POST /api/club/events/{id}/certificates → one per checked-in attendee (idempotent)
+              PDF rendered on demand with OpenPDF, QR → GET /api/verify/certificates/{slug}/{id} (public)
+```
+
+- **Direct-to-S3 uploads** keep large bodies off the API servers; signing Content-Type and
+  Content-Length stops a client from reusing an "image" URL for something else. `confirm` trusts
+  S3's `HeadObject`, not the client.
+- Object keys are prefixed by club schema (`clubs/club_x/...`), so isolation extends to storage.
+- **Certificates store facts, not files:** the PDF is derived from the row, so fixing the template
+  fixes every certificate. The id is a random UUID printed on the PDF; anyone (e.g. a recruiter)
+  can verify it without logging in, and revocation shows up immediately.
+- Credentials come from the AWS default chain (EC2 instance role in production); static keys are
+  only for local emulators and tests. Tests pre-sign for real and mock only the network call.
+
 ### Authentication and club access
 
 ```
@@ -97,10 +119,10 @@ POST /api/auth/refresh        → rotates the refresh token; reuse of an old one
 ## Tech stack
 
 Java 25 · Spring Boot 4.1 (Web MVC, Data JPA, Security, OAuth2 Resource Server, Validation, Actuator) ·
-Hibernate 7 · PostgreSQL 18 · Flyway · Nimbus JOSE (JWT) · ZXing (QR) · JUnit 5 · Testcontainers · Docker Compose ·
-GitHub Actions
+Hibernate 7 · PostgreSQL 18 · Flyway · Nimbus JOSE (JWT) · ZXing (QR) · OpenPDF · AWS SDK v2 (S3) · JUnit 5 · Mockito ·
+Testcontainers · Docker Compose · GitHub Actions
 
-Planned: Redis + Bucket4j, Kafka, WebSocket (STOMP), AWS S3/SES, OpenPDF, springdoc-openapi,
+Planned: Redis + Bucket4j, Kafka, WebSocket (STOMP), AWS SES, springdoc-openapi,
 Micrometer/Prometheus/Grafana, React 19 frontend.
 
 ## Run locally
@@ -116,6 +138,9 @@ docker compose up -d                                  # PostgreSQL 18 on localho
 |---|---|---|
 | `JWT_SECRET` | HS256 signing key, >= 32 bytes | dev-only value (never use in production) |
 | `CLUBHUB_ADMIN_EMAIL` | existing account promoted to `PLATFORM_ADMIN` at startup | none |
+| `CLUBHUB_PUBLIC_BASE_URL` | base URL printed on certificates (verification link/QR) | `http://localhost:8080` |
+| `CLUBHUB_S3_BUCKET` · `AWS_REGION` | S3 bucket and region for uploads | `clubhub-dev` · `ap-south-1` |
+| `AWS_ACCESS_KEY_ID` · `AWS_SECRET_ACCESS_KEY` | S3 credentials locally (EC2 uses its instance role) | AWS default chain |
 
 Running from an IDE: add `-Duser.timezone=UTC` to the VM options.
 
@@ -182,6 +207,16 @@ curl localhost:8080/api/club/profile -H "Authorization: Bearer $CLUB_TOKEN"
 | `GET /api/clubs/{slug}/events` · `/{id}` | any user | A club's public upcoming events |
 | `POST` · `DELETE /api/clubs/{slug}/events/{id}/registration` | any user | Register / unregister |
 | `GET /api/clubs/{slug}/events/{id}/ticket` · `/ticket/qr` | registrant | Signed ticket (JSON / PNG) |
+| `POST /api/club/files/uploads` | `CORE`+ | Pre-signed S3 upload URL (event posters) |
+| `POST /api/club/files/{id}/confirm` | `CORE`+ | Verify the upload in S3 and attach it |
+| `GET /api/club/files/{id}` | club member | 302 to a short-lived download URL |
+| `GET /api/club/events/{id}/poster` · `/api/clubs/{slug}/events/{id}/poster` | member / any user | 302 to the poster |
+| `POST /api/club/events/{id}/certificates` | `CORE`+ | Issue participation certificates to attendees |
+| `GET /api/club/events/{id}/certificates` | `CORE`+ | Certificates issued for an event |
+| `POST /api/club/certificates/{id}/revoke` | `CORE`+ | Revoke a certificate |
+| `GET /api/clubs/{slug}/certificates/mine` | any user | My certificates from this club |
+| `GET /api/clubs/{slug}/certificates/{id}/pdf` | recipient | Download the PDF |
+| `GET /api/verify/certificates/{slug}/{id}` | **public** | Verify a certificate (link/QR on the PDF) |
 
 Errors use RFC 9457 Problem Details (`application/problem+json`). 401 = not authenticated,
 403 = authenticated but not allowed.
@@ -192,7 +227,7 @@ Errors use RFC 9457 Problem Details (`application/problem+json`). 401 = not auth
 ./mvnw verify    # requires Docker; spins up a throwaway PostgreSQL 18 container
 ```
 
-130 tests, including: cross-club isolation over HTTP (`TenantIsolationTest`), forged / expired /
+138 tests, including: cross-club isolation over HTTP (`TenantIsolationTest`), forged / expired /
 `alg:none` tokens, refresh-token replay detection, live role changes, last-admin protection,
 recruitment state machines, selection → membership end to end, concurrent registrations against
 capacity, and QR tickets decoded from the PNG exactly like a door scanner would.
@@ -203,7 +238,7 @@ capacity, and QR tickets decoded from the PNG exactly like a door scanner would.
 - [x] **Phase 2** Auth + RBAC: JWT + rotating refresh tokens, club switching, platform and club roles, member management (`v0.2.0`)
 - [x] **Phase 3** Recruitment: drives with questions, student applications, audited review pipeline, auto-membership on selection (`v0.3.0`)
 - [x] **Phase 4** Events + QR attendance: capacity-safe registration, signed QR tickets, door check-in (`v0.4.0`)
-- [ ] **Phase 5** S3 file uploads + PDF certificates
+- [x] **Phase 5** S3 direct uploads with pre-signed URLs, PDF certificates with public verification (`v0.5.0`)
 - [ ] **Phase 6** Notifications: Kafka → WebSocket + email
 - [ ] **Phase 7** Plans, feature flags, per-tenant rate limits, audit log
 - [ ] **Phase 8** React frontend
