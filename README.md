@@ -9,7 +9,8 @@ Multi-tenant SaaS backend for college clubs at SRM KTR. Every club is a tenant w
 isolated PostgreSQL schema: recruitment, events with QR attendance, certificates and
 notifications, all running on one shared deployment.
 
-> **Status:** Phases 1–3 complete (tenancy core, auth + RBAC, recruitment). Events + QR attendance is next.
+> **Status:** Phases 1–4 complete (tenancy core, auth + RBAC, recruitment, events + QR attendance).
+> File uploads + certificates is next.
 > See [Roadmap](#roadmap).
 
 ## Architecture
@@ -20,8 +21,8 @@ own schema with identical tables.
 ```
 PostgreSQL "clubhub"
 ├── public            tenants, users, memberships, refresh_tokens   (platform + identity)
-├── club_coding_club  club_profile, recruitment_drives, applications, ...   (Coding Club only)
-└── club_robotics     club_profile, recruitment_drives, applications, ...   (Robotics only)
+├── club_coding_club  club_profile, recruitment_*, applications, events, event_attendance, ...  (Coding Club only)
+└── club_robotics     club_profile, recruitment_*, applications, events, event_attendance, ...  (Robotics only)
 ```
 
 A student has **one account** and can belong to many clubs with a **different role in each**
@@ -44,6 +45,25 @@ Club side (/api/club/recruitment, CORE+)        Student side (/api/clubs/{slug}/
   database itself guarantees applicants are real accounts.
 - Non-members reach a club through `ClubBySlugFilter`, which binds only the club's schema and never
   a member identity, so member-only endpoints stay closed to them.
+
+### Events and QR attendance
+
+```
+CORE creates event (DRAFT) → publish → students register (PUBLIC events: anyone; MEMBERS: members only)
+student: GET .../events/{id}/ticket/qr  →  PNG of  CH1.<club schema>.<eventId>.<userId>.<HMAC-SHA256>
+door:    POST /api/club/events/{id}/check-ins {ticket}  →  verify signature, club, event, window,
+                                                          still registered, not yet checked in
+```
+
+- **Capacity without overselling:** registration locks the event row (`SELECT ... FOR UPDATE`),
+  so "count < capacity, then insert" is atomic. A test fires 12 concurrent registrations at a
+  3-seat event and expects exactly 3 to succeed.
+- **Tickets are signed, not stored:** HMAC-SHA256 with a key derived from the JWT secret (domain
+  separated). The club schema is inside the signed payload because event ids repeat across clubs.
+  Unregistering revokes a ticket; there is nothing to leak from the database.
+- **Double scans are impossible:** `UNIQUE (event_id, user_id)` on `event_attendance` backs the
+  application check, even for two doors scanning the same ticket at the same moment.
+- Check-in opens 1 hour before the start and closes at the end. Walk-ins can be checked in by email.
 
 ### Authentication and club access
 
@@ -150,6 +170,18 @@ curl localhost:8080/api/club/profile -H "Authorization: Bearer $CLUB_TOKEN"
 | `POST /api/clubs/{slug}/recruitment/drives/{id}/applications` | any user | Apply |
 | `GET /api/clubs/{slug}/recruitment/applications/mine` | any user | My applications to this club |
 | `POST /api/clubs/{slug}/recruitment/applications/{id}/withdraw` | applicant | Withdraw own application |
+| `GET /api/club/events` | club member | Upcoming events (drafts for `CORE`+) |
+| `POST /api/club/events` | `CORE`+ | Create an event (DRAFT) |
+| `POST /api/club/events/{id}/publish` · `/cancel` | `CORE`+ | Publish / cancel |
+| `GET /api/club/events/{id}/registrations` | `CORE`+ | Registrants with attended flag |
+| `POST` · `DELETE /api/club/events/{id}/registration` | club member | Register / unregister |
+| `GET /api/club/events/{id}/ticket` · `/ticket/qr` | registrant | Signed ticket (JSON / PNG) |
+| `POST /api/club/events/{eventId}/check-ins` | `CORE`+ | Scan a QR ticket at the door |
+| `POST /api/club/events/{eventId}/check-ins/manual` | `CORE`+ | Check in a walk-in by email |
+| `GET /api/club/events/{eventId}/attendance` | `CORE`+ | Registered vs attended, attendee list |
+| `GET /api/clubs/{slug}/events` · `/{id}` | any user | A club's public upcoming events |
+| `POST` · `DELETE /api/clubs/{slug}/events/{id}/registration` | any user | Register / unregister |
+| `GET /api/clubs/{slug}/events/{id}/ticket` · `/ticket/qr` | registrant | Signed ticket (JSON / PNG) |
 
 Errors use RFC 9457 Problem Details (`application/problem+json`). 401 = not authenticated,
 403 = authenticated but not allowed.
@@ -160,16 +192,17 @@ Errors use RFC 9457 Problem Details (`application/problem+json`). 401 = not auth
 ./mvnw verify    # requires Docker; spins up a throwaway PostgreSQL 18 container
 ```
 
-108 tests, including: cross-club isolation over HTTP (`TenantIsolationTest`), forged / expired /
+130 tests, including: cross-club isolation over HTTP (`TenantIsolationTest`), forged / expired /
 `alg:none` tokens, refresh-token replay detection, live role changes, last-admin protection,
-recruitment state machines, answer validation, and selection → membership end to end.
+recruitment state machines, selection → membership end to end, concurrent registrations against
+capacity, and QR tickets decoded from the PNG exactly like a door scanner would.
 
 ## Roadmap
 
 - [x] **Phase 1** Tenancy core: schema-per-tenant, provisioning, per-tenant migrations, request routing (`v0.1.0`)
 - [x] **Phase 2** Auth + RBAC: JWT + rotating refresh tokens, club switching, platform and club roles, member management (`v0.2.0`)
 - [x] **Phase 3** Recruitment: drives with questions, student applications, audited review pipeline, auto-membership on selection (`v0.3.0`)
-- [ ] **Phase 4** Events + QR attendance
+- [x] **Phase 4** Events + QR attendance: capacity-safe registration, signed QR tickets, door check-in (`v0.4.0`)
 - [ ] **Phase 5** S3 file uploads + PDF certificates
 - [ ] **Phase 6** Notifications: Kafka → WebSocket + email
 - [ ] **Phase 7** Plans, feature flags, per-tenant rate limits, audit log
