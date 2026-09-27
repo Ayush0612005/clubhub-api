@@ -13,15 +13,18 @@ import tools.jackson.databind.json.JsonMapper;
 public class NotificationConsumer {
 
     private final NotificationService notifications;
+    private final NotificationPusher pusher;
     private final JsonMapper json;
 
-    public NotificationConsumer(NotificationService notifications, JsonMapper json) {
+    public NotificationConsumer(NotificationService notifications, NotificationPusher pusher, JsonMapper json) {
         this.notifications = notifications;
+        this.pusher = pusher;
         this.json = json;
     }
 
+    /** Store first (committed), then push: a pushed notification always exists in the inbox. */
     @KafkaListener(topics = DomainEventPublisher.TOPIC, groupId = "clubhub-notifications")
     void onEvent(String payload) {
-        notifications.record(json.readValue(payload, DomainEvent.class));
+        pusher.push(notifications.record(json.readValue(payload, DomainEvent.class)));
     }
 }

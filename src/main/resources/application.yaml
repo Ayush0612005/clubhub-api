@@ -25,6 +25,9 @@ spring:
         max.block.ms: 5000
 
 clubhub:
+  web:
+    # browser origins allowed to open the /ws WebSocket (the React dev server by default)
+    allowed-origins: ${CLUBHUB_ALLOWED_ORIGINS:http://localhost:5173}
   # Absolute base URL printed on certificates (verification link + QR). Production: https://api.<domain>
   public-base-url: ${CLUBHUB_PUBLIC_BASE_URL:http://localhost:8080}
   storage:

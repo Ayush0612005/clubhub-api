@@ -109,6 +109,11 @@
 			<artifactId>spring-boot-starter-kafka</artifactId>
 		</dependency>
 		<dependency>
+			<!-- live notifications over STOMP (WebSocket) -->
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-websocket</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>org.flywaydb</groupId>
 			<artifactId>flyway-database-postgresql</artifactId>
 		</dependency>
