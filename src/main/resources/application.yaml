@@ -28,6 +28,12 @@ clubhub:
   web:
     # browser origins allowed to open the /ws WebSocket (the React dev server by default)
     allowed-origins: ${CLUBHUB_ALLOWED_ORIGINS:http://localhost:5173}
+    # frontend base URL used for links inside emails
+    app-url: ${CLUBHUB_APP_URL:http://localhost:5173}
+  mail:
+    # "log" (default: nothing is sent, only logged) or "ses" (Amazon SES, production)
+    provider: ${CLUBHUB_MAIL_PROVIDER:log}
+    from: ${CLUBHUB_MAIL_FROM:ClubHub <no-reply@clubhub.local>}
   # Absolute base URL printed on certificates (verification link + QR). Production: https://api.<domain>
   public-base-url: ${CLUBHUB_PUBLIC_BASE_URL:http://localhost:8080}
   storage:

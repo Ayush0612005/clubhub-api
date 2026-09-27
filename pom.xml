@@ -58,6 +58,17 @@
 			</exclusions>
 		</dependency>
 		<dependency>
+			<!-- transactional email (SES API v2) -->
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>sesv2</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>software.amazon.awssdk</groupId>
+					<artifactId>netty-nio-client</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
