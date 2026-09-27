@@ -9,35 +9,38 @@ Multi-tenant SaaS backend for college clubs at SRM KTR. Every club is a tenant w
 isolated PostgreSQL schema: recruitment, events with QR attendance, certificates and
 notifications, all running on one shared deployment.
 
-> **Status:** Phase 1 (tenancy core) complete. Auth and RBAC are next. See [Roadmap](#roadmap).
+> **Status:** Phase 1 (tenancy core) and Phase 2 (auth + RBAC) complete. Recruitment is next.
+> See [Roadmap](#roadmap).
 
 ## Architecture
 
-**Schema-per-tenant.** Platform data (clubs, and later users and memberships) lives in `public`;
-each club's data lives in its own schema with identical tables.
+**Schema-per-tenant.** Identity and platform data live in `public`; each club's data lives in its
+own schema with identical tables.
 
 ```
 PostgreSQL "clubhub"
-├── public                  tenants, flyway_schema_history   (platform)
-├── club_coding_club        club_profile, flyway_schema_history
-└── club_robotics           club_profile, flyway_schema_history
+├── public            tenants, users, memberships, refresh_tokens   (platform + identity)
+├── club_coding_club  club_profile, ...                             (Coding Club only)
+└── club_robotics     club_profile, ...                             (Robotics only)
 ```
 
-**Request flow for a club-scoped call**
+A student has **one account** and can belong to many clubs with a **different role in each**
+(`memberships`: user × club × `CLUB_ADMIN | CORE | MEMBER`).
+
+### Authentication and club access
 
 ```
-GET /api/club/profile   X-Tenant-ID: coding_club
-  → TenantFilter         validates slug, looks up public.tenants (404 unknown, 403 suspended)
-  → TenantContext        binds schema "club_coding_club" (Java 25 ScopedValue, request-scoped)
-  → Hibernate            CurrentTenantIdentifierResolver → MultiTenantConnectionProvider
-                         borrows a pooled connection and sets search_path to the club schema
-  → ClubProfileService   plain JPA code, no tenant logic
-  → connection reset to "public" before returning to the pool
+POST /api/auth/login          → access token (JWT, 15 min) + refresh token (opaque, 14 days)
+POST /api/auth/switch-club    → checks membership, returns an access token scoped to one club
+                                (claims: sub, roles, tid, club, club_role)
+GET  /api/club/...            → TenantFilter:
+                                  1. club id from the VERIFIED token (not from a header)
+                                  2. re-check membership + club status in the DB (removal is instant)
+                                  3. bind club schema + live role (Java 25 ScopedValues)
+                                → Hibernate opens the session in club_<slug> (search_path)
+                                → @PreAuthorize("@clubAuthz.atLeast('CORE')") checks the live role
+POST /api/auth/refresh        → rotates the refresh token; reuse of an old one revokes the session
 ```
-
-**Onboarding a club** (`POST /api/platform/tenants`): validate slug → Flyway creates
-`club_<slug>` and applies `db/migration/tenant/*` → seed club profile → register in
-`public.tenants`. On every startup, all active club schemas are migrated to the latest version.
 
 ### Key design decisions
 
@@ -45,57 +48,81 @@ GET /api/club/profile   X-Tenant-ID: coding_club
 |---|---|
 | Schema-per-tenant (not a `tenant_id` column) | Isolation enforced by the database, not by remembering a `WHERE`; per-club export/delete is trivial. Trade-off: migrations run N times, fine for hundreds of clubs. |
 | PostgreSQL over MySQL | Real schemas plus transactional DDL: a failed migration rolls back cleanly in every club schema. |
-| `ScopedValue` for tenant context | No `ThreadLocal.clear()` to forget, so no tenant leaking into the next request on a pooled thread. |
-| Flyway creates schemas | Identifiers are quoted by Flyway; no hand-built `CREATE SCHEMA` strings (no injection). Slugs are also constrained by a DB `CHECK`. |
-| Build schema, then register tenant | A club is never visible without its tables; failed provisioning is safely retryable. |
-| JVM runs in UTC | Consistent timestamps (`TIMESTAMPTZ`); convert to IST only in the UI. |
-| Testcontainers, not H2 | `search_path` and schema behaviour are PostgreSQL-specific; tests run against real Postgres 18. |
+| Club comes from a signed JWT claim, membership re-checked per request | A header can be forged; a claim can't. Re-checking the DB makes removals/demotions immediate instead of waiting for token expiry. |
+| Role checked from the DB, not the token | A token issued before a demotion must not keep old powers. Tested explicitly. |
+| Short JWT + rotating opaque refresh token | JWTs can't be revoked, so they live 15 min. Refresh tokens are revocable, stored as SHA-256 hashes, rotated on every use; reuse revokes that login's token family. |
+| `ScopedValue` for tenant/member context | No `ThreadLocal.clear()` to forget, so no tenant leaking into the next request on a pooled thread. |
+| Same response for "club doesn't exist" and "not a member" | Outsiders can't enumerate club slugs; same idea for login (no email enumeration, timing equalised with a dummy BCrypt check). |
+| `DelegatingPasswordEncoder` (BCrypt) | Hash algorithm can be upgraded later without forcing password resets. |
+| Testcontainers, not H2 | `search_path`, row locks and schema behaviour are PostgreSQL-specific; tests run against real Postgres 18. |
 
 ## Tech stack
 
-Java 25 · Spring Boot 4.1 (Web MVC, Data JPA, Validation, Actuator) · Hibernate 7 · PostgreSQL 18 ·
-Flyway · JUnit 5 · Testcontainers · Docker Compose · GitHub Actions
+Java 25 · Spring Boot 4.1 (Web MVC, Data JPA, Security, OAuth2 Resource Server, Validation, Actuator) ·
+Hibernate 7 · PostgreSQL 18 · Flyway · Nimbus JOSE (JWT) · JUnit 5 · Testcontainers · Docker Compose ·
+GitHub Actions
 
-Planned: Spring Security + JWT, Redis + Bucket4j, Kafka, WebSocket (STOMP), AWS S3/SES, ZXing,
-OpenPDF, springdoc-openapi, Micrometer/Prometheus/Grafana, React 19 frontend.
+Planned: Redis + Bucket4j, Kafka, WebSocket (STOMP), AWS S3/SES, ZXing, OpenPDF, springdoc-openapi,
+Micrometer/Prometheus/Grafana, React 19 frontend.
 
 ## Run locally
 
 Prerequisites: JDK 25, Docker Desktop.
 
 ```bash
-docker compose up -d            # PostgreSQL 18 on localhost:5432
-./mvnw spring-boot:run          # Windows: .\mvnw.cmd spring-boot:run
+docker compose up -d                                  # PostgreSQL 18 on localhost:5432
+./mvnw spring-boot:run                                # Windows: .\mvnw.cmd spring-boot:run
 ```
+
+| Env var | Purpose | Default |
+|---|---|---|
+| `JWT_SECRET` | HS256 signing key, >= 32 bytes | dev-only value (never use in production) |
+| `CLUBHUB_ADMIN_EMAIL` | existing account promoted to `PLATFORM_ADMIN` at startup | none |
 
 Running from an IDE: add `-Duser.timezone=UTC` to the VM options.
 
-### Try the API
+### Try it
 
 ```bash
-# create a club (provisions schema club_coding_club)
-curl -X POST localhost:8080/api/platform/tenants \
-  -H "Content-Type: application/json" \
-  -d '{"slug":"coding_club","name":"Coding Club"}'
+# 1. register, then restart with CLUBHUB_ADMIN_EMAIL=you@srmist.edu.in to become platform admin
+curl -X POST localhost:8080/api/auth/register -H "Content-Type: application/json" \
+  -d '{"email":"you@srmist.edu.in","password":"a-long-password","fullName":"You"}'
 
-# read / update that club's profile
-curl localhost:8080/api/club/profile -H "X-Tenant-ID: coding_club"
-curl -X PUT localhost:8080/api/club/profile -H "X-Tenant-ID: coding_club" \
-  -H "Content-Type: application/json" \
-  -d '{"displayName":"SRM Coding Club","contactEmail":"coding@srmist.edu.in"}'
+# 2. log in (copy accessToken)
+curl -X POST localhost:8080/api/auth/login -H "Content-Type: application/json" \
+  -d '{"email":"you@srmist.edu.in","password":"a-long-password"}'
+
+# 3. create a club (you become its CLUB_ADMIN, or pass "ownerEmail")
+curl -X POST localhost:8080/api/platform/tenants -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{"slug":"coding_club","name":"Coding Club"}'
+
+# 4. switch into the club (copy the new accessToken) and use club endpoints
+curl -X POST localhost:8080/api/auth/switch-club -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{"clubSlug":"coding_club"}'
+curl localhost:8080/api/club/profile -H "Authorization: Bearer $CLUB_TOKEN"
 ```
 
-| Endpoint | Scope | Description |
+### Endpoints
+
+| Endpoint | Who | Description |
 |---|---|---|
-| `POST /api/platform/tenants` | platform | Create a club (`201`, `409` duplicate slug, `400` invalid) |
-| `GET /api/platform/tenants` | platform | List clubs |
-| `GET /api/club/profile` | club (`X-Tenant-ID`) | Get the club's profile |
-| `PUT /api/club/profile` | club (`X-Tenant-ID`) | Update the club's profile |
+| `POST /api/auth/register` | public | Create an account |
+| `POST /api/auth/login` | public | Access + refresh token |
+| `POST /api/auth/refresh` | refresh token | Rotate tokens (optional `clubSlug` keeps the active club) |
+| `POST /api/auth/logout` | refresh token | Revoke this login session |
+| `POST /api/auth/switch-club` | any user | Club-scoped access token (members only) |
+| `GET /api/auth/me` | any user | Identity and active club from the token |
+| `POST /api/platform/tenants` | `PLATFORM_ADMIN` | Create a club (`ownerEmail` optional) |
+| `GET /api/platform/tenants` | `PLATFORM_ADMIN` | List clubs |
+| `GET /api/club/profile` | club member | Club profile |
+| `PUT /api/club/profile` | `CORE`+ | Update club profile |
+| `GET /api/club/members` | club member | List members and roles |
+| `POST /api/club/members` | `CLUB_ADMIN` | Add a registered user with a role |
+| `PATCH /api/club/members/{userId}` | `CLUB_ADMIN` | Change role (last admin protected) |
+| `DELETE /api/club/members/{userId}` | `CLUB_ADMIN` | Remove member (last admin protected) |
 
-Errors use RFC 9457 Problem Details (`application/problem+json`).
-
-> `X-Tenant-ID` and the unsecured platform endpoints are Phase 1 scaffolding. Phase 2 resolves the
-> tenant from a signed JWT claim and restricts platform endpoints to `PLATFORM_ADMIN`.
+Errors use RFC 9457 Problem Details (`application/problem+json`). 401 = not authenticated,
+403 = authenticated but not allowed.
 
 ## Tests
 
@@ -103,13 +130,13 @@ Errors use RFC 9457 Problem Details (`application/problem+json`).
 ./mvnw verify    # requires Docker; spins up a throwaway PostgreSQL 18 container
 ```
 
-Includes an end-to-end acceptance test (`TenantIsolationTest`) proving one club can never read or
-modify another club's data through the API.
+84 tests, including: cross-club isolation over HTTP (`TenantIsolationTest`), forged / expired /
+`alg:none` tokens, refresh-token replay detection, live role changes, and last-admin protection.
 
 ## Roadmap
 
-- [x] **Phase 1** Tenancy core: schema-per-tenant, provisioning, per-tenant migrations, request routing
-- [ ] **Phase 2** Auth + RBAC: JWT access/refresh tokens, `CLUB_ADMIN` / `CORE` / `MEMBER` / `PLATFORM_ADMIN`
+- [x] **Phase 1** Tenancy core: schema-per-tenant, provisioning, per-tenant migrations, request routing (`v0.1.0`)
+- [x] **Phase 2** Auth + RBAC: JWT + rotating refresh tokens, club switching, platform and club roles, member management (`v0.2.0`)
 - [ ] **Phase 3** Recruitment pipeline
 - [ ] **Phase 4** Events + QR attendance
 - [ ] **Phase 5** S3 file uploads + PDF certificates
