@@ -6,6 +6,9 @@ import com.clubhub.auth.AuthDtos.TokenResponse;
 import com.clubhub.auth.AuthDtos.UserResponse;
 import com.clubhub.auth.AuthExceptions.EmailAlreadyUsedException;
 import com.clubhub.auth.AuthExceptions.InvalidCredentialsException;
+import com.clubhub.auth.AuthExceptions.InvalidRefreshTokenException;
+import com.clubhub.auth.RefreshTokenService.IssuedRefreshToken;
+import com.clubhub.auth.RefreshTokenService.Rotation;
 import com.clubhub.security.JwtTokenService;
 import com.clubhub.user.User;
 import com.clubhub.user.UserRepository;
@@ -22,13 +25,16 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService tokenService;
+    private final RefreshTokenService refreshTokenService;
     /** Hash compared against when the email is unknown, so both failure paths take the same time. */
     private final String dummyHash;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtTokenService tokenService) {
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,
+                       JwtTokenService tokenService, RefreshTokenService refreshTokenService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
+        this.refreshTokenService = refreshTokenService;
         this.dummyHash = passwordEncoder.encode("timing-equalizer-not-a-real-password");
     }
 
@@ -48,7 +54,7 @@ public class AuthService {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public TokenResponse login(LoginRequest request) {
         Optional<User> user = userRepository.findByEmail(User.normalizeEmail(request.email()));
 
@@ -60,8 +66,28 @@ public class AuthService {
         if (user.isEmpty() || !passwordMatches || !user.get().isEnabled()) {
             throw new InvalidCredentialsException();
         }
+        return tokensFor(user.get(), refreshTokenService.issueForNewLogin(user.get().getId()));
+    }
 
-        JwtTokenService.AccessToken token = tokenService.issueAccessToken(user.get());
-        return TokenResponse.bearer(token.value(), token.expiresAt());
+    /**
+     * Deliberately NOT @Transactional. rotate() commits its own transaction, including the family
+     * revocation on reuse. An outer transaction here would be marked rollback-only by the
+     * InvalidRefreshTokenException and silently undo that revocation.
+     */
+    public TokenResponse refresh(String refreshToken) {
+        Rotation rotation = refreshTokenService.rotate(refreshToken);
+        User user = userRepository.findById(rotation.userId())
+                .filter(User::isEnabled)
+                .orElseThrow(InvalidRefreshTokenException::new);
+        return tokensFor(user, rotation.next());
+    }
+
+    public void logout(String refreshToken) {
+        refreshTokenService.revoke(refreshToken);
+    }
+
+    private TokenResponse tokensFor(User user, IssuedRefreshToken refresh) {
+        JwtTokenService.AccessToken access = tokenService.issueAccessToken(user);
+        return TokenResponse.bearer(access.value(), access.expiresAt(), refresh.value(), refresh.expiresAt());
     }
 }

@@ -25,7 +25,9 @@ public class SecurityConfig {
                 .formLogin(AbstractHttpConfigurer::disable)
                 // Deny by default: every endpoint needs a valid token unless listed here.
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
+                        // refresh/logout authenticate with the refresh token in the body, not a bearer token
+                        .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login",
+                                "/api/auth/refresh", "/api/auth/logout").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())

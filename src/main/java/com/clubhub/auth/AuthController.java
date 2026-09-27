@@ -1,6 +1,7 @@
 package com.clubhub.auth;
 
 import com.clubhub.auth.AuthDtos.LoginRequest;
+import com.clubhub.auth.AuthDtos.RefreshRequest;
 import com.clubhub.auth.AuthDtos.RegisterRequest;
 import com.clubhub.auth.AuthDtos.TokenResponse;
 import com.clubhub.auth.AuthDtos.UserResponse;
@@ -37,6 +38,18 @@ public class AuthController {
     @PostMapping("/login")
     public TokenResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
+    }
+
+    /** Trade a refresh token for a new access + refresh token pair (the old refresh token dies). */
+    @PostMapping("/refresh")
+    public TokenResponse refresh(@Valid @RequestBody RefreshRequest request) {
+        return authService.refresh(request.refreshToken());
+    }
+
+    @PostMapping("/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void logout(@Valid @RequestBody RefreshRequest request) {
+        authService.logout(request.refreshToken());
     }
 
     /** Who does this token belong to? Read straight from the verified JWT, no DB hit. */

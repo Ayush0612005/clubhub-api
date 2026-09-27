@@ -25,10 +25,15 @@ public final class AuthDtos {
     public record UserResponse(UUID id, String email, String fullName) {
     }
 
-    public record TokenResponse(String accessToken, String tokenType, Instant expiresAt) {
+    public record RefreshRequest(@NotBlank String refreshToken) {
+    }
 
-        static TokenResponse bearer(String token, Instant expiresAt) {
-            return new TokenResponse(token, "Bearer", expiresAt);
+    public record TokenResponse(String accessToken, String tokenType, Instant expiresAt,
+                                String refreshToken, Instant refreshExpiresAt) {
+
+        static TokenResponse bearer(String accessToken, Instant expiresAt,
+                                    String refreshToken, Instant refreshExpiresAt) {
+            return new TokenResponse(accessToken, "Bearer", expiresAt, refreshToken, refreshExpiresAt);
         }
     }
 }
