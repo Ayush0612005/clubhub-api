@@ -1,0 +1,133 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * ClubHub design tokens. Warm "paper" neutrals, one confident accent (signal orange),
+ * a deep ink for text, and three status colours. Everything else is derived from these.
+ */
+@theme {
+  --font-display: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, monospace;
+
+  --color-paper: #f7f5f0;
+  --color-paper-2: #efece4;
+  --color-surface: #ffffff;
+  --color-line: #e4e0d6;
+  --color-ink: #16181d;
+  --color-ink-2: #3a3d45;
+  --color-muted: #6b6f76;
+
+  --color-signal: #ff5a1f;
+  --color-signal-600: #e84a12;
+  --color-signal-50: #fff1ea;
+
+  --color-forest: #1f6f4a;
+  --color-forest-50: #e8f4ee;
+  --color-cobalt: #2f54eb;
+  --color-cobalt-50: #ecf0ff;
+  --color-berry: #c8264f;
+  --color-berry-50: #fdecf0;
+  --color-amber: #b7791f;
+  --color-amber-50: #fdf5e6;
+
+  --radius-card: 1.25rem;
+  --shadow-soft: 0 1px 0 rgb(22 24 29 / 0.04), 0 8px 24px -12px rgb(22 24 29 / 0.18);
+  --shadow-lift: 0 1px 0 rgb(22 24 29 / 0.05), 0 18px 40px -18px rgb(22 24 29 / 0.35);
+
+  --animate-rise: rise 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-marquee: marquee 38s linear infinite;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* Dark theme: same names, night values. Toggled with the .dark class on <html>. */
+.dark {
+  /* native scrollbars, date pickers and selects follow the theme too */
+  color-scheme: dark;
+  --color-paper: #0f1012;
+  --color-paper-2: #17191d;
+  --color-surface: #1b1d22;
+  --color-line: #2a2d34;
+  --color-ink: #f2f0ea;
+  --color-ink-2: #c9c6be;
+  --color-muted: #8d9098;
+  --color-signal-50: #2c1a12;
+  --color-forest-50: #13261d;
+  --color-cobalt-50: #161c33;
+  --color-berry-50: #2b1219;
+  --color-amber-50: #2a2112;
+}
+
+@layer base {
+  html {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--color-signal);
+    color: white;
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-signal);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+}
+
+@layer components {
+  /* subtle dotted "graph paper" backdrop used on hero and auth screens */
+  .bg-dots {
+    background-image: radial-gradient(circle at 1px 1px, rgb(22 24 29 / 0.08) 1px, transparent 0);
+    background-size: 22px 22px;
+  }
+
+  .dark .bg-dots {
+    background-image: radial-gradient(circle at 1px 1px, rgb(255 255 255 / 0.06) 1px, transparent 0);
+  }
+
+  /* ticket perforation: two half-circle notches and a dashed tear line */
+  .ticket-notch {
+    position: relative;
+  }
+
+  .ticket-notch::before,
+  .ticket-notch::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--color-paper);
+    transform: translateY(-50%);
+  }
+
+  .ticket-notch::before { left: -11px; }
+  .ticket-notch::after { right: -11px; }
+}
+
+/* horizontally scrolling strips (tabs, kanban) scroll by touch/trackpad without a visible bar */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}

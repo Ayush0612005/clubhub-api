@@ -47,7 +47,7 @@ public class CertificateService {
     private final UserRepository users;
     private final TenantRepository tenants;
     private final CertificatePdfRenderer renderer;
-    private final String publicBaseUrl;
+    private final String appUrl;
     private final DomainEventPublisher domainEvents;
     private final AuditService audit;
     private final PlanService plans;
@@ -55,7 +55,7 @@ public class CertificateService {
     public CertificateService(CertificateRepository certificates, EventRepository events,
                               AttendanceRepository attendance, UserRepository users, TenantRepository tenants,
                               CertificatePdfRenderer renderer, DomainEventPublisher domainEvents, AuditService audit,
-                              PlanService plans, @Value("${clubhub.public-base-url}") String publicBaseUrl) {
+                              PlanService plans, @Value("${clubhub.web.app-url}") String appUrl) {
         this.plans = plans;
         this.domainEvents = domainEvents;
         this.audit = audit;
@@ -65,7 +65,7 @@ public class CertificateService {
         this.users = users;
         this.tenants = tenants;
         this.renderer = renderer;
-        this.publicBaseUrl = publicBaseUrl.replaceAll("/+$", "");
+        this.appUrl = appUrl.replaceAll("/+$", "");
     }
 
     /**
@@ -154,7 +154,7 @@ public class CertificateService {
     }
 
     String verifyUrl(String slug, UUID certificateId) {
-        return publicBaseUrl + "/api/verify/certificates/" + slug + "/" + certificateId;
+        return appUrl + "/verify/" + slug + "/" + certificateId;
     }
 
     private CertificateView view(Certificate c, String slug) {
