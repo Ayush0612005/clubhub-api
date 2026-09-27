@@ -37,6 +37,9 @@ public class SecurityConfig {
                         // instead (StompAuthInterceptor), so no frame is processed without a valid token
                         .requestMatchers(HttpMethod.GET, "/ws").permitAll()
                         .requestMatchers("/error").permitAll()
+                        // API documentation (the spec itself holds no data)
+                        .requestMatchers(HttpMethod.GET, "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html",
+                                "/swagger-ui/**").permitAll()
                         // platform administration: only the ROLE_PLATFORM_ADMIN authority (from the "roles" claim)
                         .requestMatchers("/api/platform/**").hasRole("PLATFORM_ADMIN")
                         .anyRequest().authenticated())
