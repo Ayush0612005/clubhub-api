@@ -33,6 +33,9 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         // certificate verification links are printed on PDFs and opened by recruiters
                         .requestMatchers(HttpMethod.GET, "/api/verify/**").permitAll()
+                        // WebSocket handshake can't carry a bearer header: STOMP CONNECT is authenticated
+                        // instead (StompAuthInterceptor), so no frame is processed without a valid token
+                        .requestMatchers(HttpMethod.GET, "/ws").permitAll()
                         .requestMatchers("/error").permitAll()
                         // platform administration: only the ROLE_PLATFORM_ADMIN authority (from the "roles" claim)
                         .requestMatchers("/api/platform/**").hasRole("PLATFORM_ADMIN")
