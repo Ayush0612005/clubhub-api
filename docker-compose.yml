@@ -1,3 +1,10 @@
+# Two ways to run:
+#   docker compose up -d                        infrastructure only (run the API from the IDE / mvnw)
+#   docker compose --profile full up -d --build everything: API, web app, Prometheus, Grafana
+# Full stack: web app on http://localhost:8088, Grafana on http://localhost:3002, Prometheus on :9102
+# (not 3000/9090: Windows/Hyper-V often reserves those; override with GRAFANA_PORT / PROMETHEUS_PORT). On a server set
+# MONITORING_BIND=127.0.0.1 so Prometheus/Grafana are reachable only through an SSH tunnel.
+
 services:
   postgres:
     image: postgres:18
@@ -5,7 +12,7 @@ services:
     environment:
       POSTGRES_DB: clubhub
       POSTGRES_USER: clubhub
-      POSTGRES_PASSWORD: clubhub
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-clubhub}
     ports:
       - "5432:5432"
     volumes:
@@ -17,17 +24,116 @@ services:
       retries: 10
 
   kafka:
-    # single-node KRaft broker (no ZooKeeper); the image's defaults listen on localhost:9092
+    # single-node KRaft broker (no ZooKeeper). Two client listeners: localhost:9092 for an API
+    # running on the host, kafka:19092 for containers on the compose network.
     image: apache/kafka:4.1.0
     container_name: clubhub-kafka
     ports:
       - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://:19092,HOST://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:19092,HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
 
   redis:
     image: redis:8
     container_name: clubhub-redis
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ------------------------------------------------------------------ full stack (--profile full)
+
+  api:
+    profiles: [full]
+    build: .
+    image: clubhub-api:local
+    container_name: clubhub-api
+    depends_on:
+      postgres: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/clubhub
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-clubhub}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      REDIS_HOST: redis
+      JWT_SECRET: ${JWT_SECRET:-local-compose-secret-change-me-0123456789abcdef}
+      CLUBHUB_ADMIN_EMAIL: ${CLUBHUB_ADMIN_EMAIL:-}
+      CLUBHUB_DEFAULT_PLAN: ${CLUBHUB_DEFAULT_PLAN:-FREE}
+      CLUBHUB_APP_URL: http://localhost:${WEB_PORT:-8088}
+      CLUBHUB_ALLOWED_ORIGINS: http://localhost:${WEB_PORT:-8088}
+      # real client IP from nginx's X-Forwarded-For (per-IP login rate limit)
+      SERVER_FORWARD_HEADERS_STRATEGY: native
+      # actuator (metrics, probes) on its own port, never published: only Prometheus reaches it
+      MANAGEMENT_SERVER_PORT: 8081
+      # same JVM sizing as the free Render instance (render.yaml), so this stack proves it fits
+      JAVA_TOOL_OPTIONS: >-
+        -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k -XX:ReservedCodeCacheSize=48m
+        -XX:MaxMetaspaceSize=160m -XX:TieredStopAtLevel=1 -Duser.timezone=UTC
+    mem_limit: 512m
+    # no "ports": the API is only reachable through the web container's reverse proxy
+
+  web:
+    profiles: [full]
+    build: ./frontend
+    image: clubhub-web:local
+    container_name: clubhub-web
+    depends_on:
+      api: { condition: service_healthy }
+    ports:
+      - "${WEB_PORT:-8088}:80"
+
+  prometheus:
+    profiles: [full]
+    image: prom/prometheus:v3.7.0
+    container_name: clubhub-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - promdata:/prometheus
+    ports:
+      - "${MONITORING_BIND:-0.0.0.0}:${PROMETHEUS_PORT:-9102}:9090"
+
+  grafana:
+    profiles: [full]
+    image: grafana/grafana:12.2.0
+    container_name: clubhub-grafana
+    depends_on: [prometheus]
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-clubhub}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/clubhub.json
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafanadata:/var/lib/grafana
+    ports:
+      - "${MONITORING_BIND:-0.0.0.0}:${GRAFANA_PORT:-3002}:3000"
 
 volumes:
   pgdata:
+  promdata:
+  grafanadata:

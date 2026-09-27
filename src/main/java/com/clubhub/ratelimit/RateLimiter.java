@@ -10,8 +10,10 @@ import io.lettuce.core.RedisURI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.data.redis.autoconfigure.DataRedisConnectionDetails;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -38,15 +40,23 @@ public class RateLimiter implements DisposableBean {
     private final RedisClient client;
     private final ProxyManager<byte[]> buckets;
 
-    public RateLimiter(DataRedisConnectionDetails redis) {
+    public RateLimiter(DataRedisConnectionDetails redis,
+                       @Value("${spring.data.redis.ssl.enabled:false}") boolean sslEnabled,
+                       @Value("${spring.data.redis.url:}") String url) {
         DataRedisConnectionDetails.Standalone standalone = redis.getStandalone();
         RedisURI.Builder uri = RedisURI.builder()
                 .withHost(standalone.getHost())
                 .withPort(standalone.getPort())
                 .withDatabase(standalone.getDatabase())
+                // hosted Redis (e.g. Upstash) is TLS-only: ssl.enabled=true or a rediss:// URL
+                .withSsl(sslEnabled || url.startsWith("rediss://"))
                 .withTimeout(Duration.ofSeconds(2));
-        if (redis.getPassword() != null) {
-            uri.withPassword(redis.getPassword().toCharArray());
+        if (StringUtils.hasText(redis.getPassword())) {
+            if (StringUtils.hasText(redis.getUsername())) {
+                uri.withAuthentication(redis.getUsername(), redis.getPassword()); // Redis 6+ ACL user
+            } else {
+                uri.withPassword(redis.getPassword().toCharArray());
+            }
         }
         this.client = RedisClient.create(uri.build());
         this.buckets = Bucket4jLettuce.casBasedBuilder(client)

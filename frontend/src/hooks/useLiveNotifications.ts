@@ -19,9 +19,11 @@ export function useLiveNotifications() {
 
   useEffect(() => {
     if (!signedIn) return
+    // Same origin by default (Vite proxy locally, nginx in Docker). Hosts that can't proxy WebSockets
+    // (Vercel) point VITE_WS_URL straight at the API, e.g. wss://clubhub-api.onrender.com/ws.
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
     const client = new Client({
-      brokerURL: `${protocol}://${window.location.host}/ws`,
+      brokerURL: import.meta.env.VITE_WS_URL || `${protocol}://${window.location.host}/ws`,
       reconnectDelay: 5000,
       beforeConnect: (c) => {
         c.connectHeaders = { Authorization: `Bearer ${session.get()?.accessToken ?? ''}` }

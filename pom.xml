@@ -75,6 +75,11 @@
 			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
 		<dependency>
+			<!-- /actuator/prometheus for Prometheus scraping (Grafana dashboards) -->
+			<groupId>io.micrometer</groupId>
+			<artifactId>micrometer-registry-prometheus</artifactId>
+		</dependency>
+		<dependency>
 			<!-- QR codes for event tickets: core encodes, javase renders to PNG -->
 			<groupId>com.google.zxing</groupId>
 			<artifactId>core</artifactId>

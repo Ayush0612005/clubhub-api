@@ -1,0 +1,9 @@
+.git
+.github
+.idea
+*.iml
+target
+frontend
+deploy
+docs
+*.md
