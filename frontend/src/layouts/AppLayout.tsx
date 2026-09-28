@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { Bell, Compass, House, LogOut, Menu, Plus, ShieldCheck, X } from 'lucide-react'
+import { Bell, CalendarDays, Compass, House, Inbox, LogOut, Megaphone, Menu, Plus, ShieldCheck, X } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router'
 import { Logo, ThemeToggle } from '../components/brand'
@@ -50,21 +50,31 @@ function Sidebar({ live, onNavigate }: { live: boolean; onNavigate?: () => void 
 
       <nav className="space-y-1">
         <NavItem to="/app" end icon={<House />}>Home</NavItem>
-        <NavItem to="/app/explore" icon={<Compass />}>Explore clubs</NavItem>
+        <NavItem to="/app/events" icon={<CalendarDays />}>What's on</NavItem>
+        <NavItem to="/app/clubs" icon={<Compass />}>Clubs</NavItem>
+        <NavItem to="/app/recruiting" icon={<Megaphone />}>Recruiting</NavItem>
         <NavItem to="/app/notifications" icon={<Bell />} badge={unread.data?.unread}>Notifications</NavItem>
-        {me.data?.platformAdmin && <NavItem to="/app/platform" icon={<ShieldCheck />}>Platform</NavItem>}
+        {me.data?.platformAdmin && (
+          <>
+            <p className="px-3 pt-5 pb-1 font-mono text-[11px] tracking-[0.16em] text-muted uppercase">Admin</p>
+            <NavItem to="/app/moderation" icon={<Inbox />}>Moderation</NavItem>
+            <NavItem to="/app/platform" icon={<ShieldCheck />}>Workspaces</NavItem>
+          </>
+        )}
       </nav>
 
-      <div className="mt-8 mb-2 flex items-center justify-between px-3">
-        <p className="font-mono text-[11px] tracking-[0.16em] text-muted uppercase">Your clubs</p>
-        {me.data?.platformAdmin && (
-          <button onClick={() => navigate('/app/platform')} className="rounded-md p-1 text-muted hover:bg-paper-2 hover:text-ink" aria-label="New club">
-            <Plus className="size-4" />
-          </button>
+      {/* ClubHub workspaces the student belongs to: most students have none, so the section only appears when there is one */}
+      <div className="-mx-1 mt-8 flex-1 space-y-0.5 overflow-y-auto px-1">
+        {(!!clubs.data?.length || me.data?.platformAdmin) && (
+          <div className="mb-2 flex items-center justify-between px-4">
+            <p className="font-mono text-[11px] tracking-[0.16em] text-muted uppercase">Your workspaces</p>
+            {me.data?.platformAdmin && (
+              <button onClick={() => navigate('/app/platform')} className="rounded-md p-1 text-muted hover:bg-paper-2 hover:text-ink" aria-label="New workspace">
+                <Plus className="size-4" />
+              </button>
+            )}
+          </div>
         )}
-      </div>
-      <div className="-mx-1 flex-1 space-y-0.5 overflow-y-auto px-1">
-        {clubs.data?.length === 0 && <p className="px-3 py-2 text-[13px] text-muted">Join a club from Explore — selected applicants show up here.</p>}
         {clubs.data?.map((club) => (
           <NavLink
             key={club.slug}

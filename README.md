@@ -8,9 +8,28 @@
 **Live demo:** [clubhub-mocha.vercel.app](https://clubhub-mocha.vercel.app) · API: [clubhub-api-9sw2.onrender.com](https://clubhub-api-9sw2.onrender.com/swagger-ui.html)
 (free tier: the API sleeps when idle, so the first request can take ~50 s)
 
-Multi-tenant SaaS for college clubs at SRM KTR. Every club is a tenant with its own
-isolated PostgreSQL schema: recruitment, events with QR attendance, certificates and
-notifications, all running on one shared deployment, with a React web app on top.
+Campus hub for SRM KTR: **every club, every event and every open recruitment in one place**, for
+students who sign in with their `@srmist.edu.in` email. Under it, a multi-tenant SaaS: any club can
+claim its page and get its own isolated PostgreSQL schema with recruitment, events with QR
+attendance, certificates and notifications.
+
+### Campus directory (no club sign-up needed)
+
+- **75 clubs, chapters and associations** seeded from srmist.edu.in (Directorate of Student Affairs and
+  department pages): public club information only, no people's names or contacts (`V10__seed_srm_club_listings.sql`).
+- **Events** come from three sources, and **nothing reaches students until an admin approves it**:
+  1. SRM's official events **RSS feed** (`/events/feed/`, allowed by its `robots.txt`). srmist.edu.in's
+     bot protection answers 403 to servers, and we don't try to get around it: an admin opens the feed in
+     their own browser and pastes it into the Moderation screen (`SrmEventsImporter.importFeed`). A 6-hourly
+     server-side pull exists behind `CLUBHUB_SRM_FEED_ENABLED`, for if SRM ever allowlists ClubHub.
+     The feed has no event-date field, so dates are parsed from the text ("from 24-26 February 2027"),
+     reports of past events ("was held on…") are skipped, and re-imports never duplicate (unique GUID).
+  2. The platform team, in a moderation screen.
+  3. **Student suggestions** ("saw a poster on Instagram? add it"), capped at 5 pending per student.
+- **Recruitments**: "club X is recruiting for Y, apply by date", linking to the club's own form.
+- Registration always happens on the organiser's own form: they are the ones who need the list.
+- Design: *unclaimed listings*, like business pages on a map. Aggregate first; a club that claims
+  its listing (`club_listings.tenant_id`) gets the full workspace below.
 
 > **Status:** Phases 1–9 complete (tenancy core, auth + RBAC, recruitment, events + QR attendance,
 > S3 files + PDF certificates, notifications via Kafka → WebSocket + email, plans + rate limits +

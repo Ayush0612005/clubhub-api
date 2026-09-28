@@ -32,6 +32,11 @@ spring:
 clubhub:
   events:
     transport: in-process         # see InProcessEventRelay; "kafka" in the cloud-kafka profile
+  campus:
+    srm-feed:
+      # pull SRM's events feed into the moderation queue every 6 hours. Off: srmist.edu.in's bot protection
+      # answers 403 to servers; admins paste the feed in the Moderation screen instead. Turn on if SRM allowlists us.
+      schedule-enabled: ${CLUBHUB_SRM_FEED_ENABLED:false}
 
 management:
   endpoints:
