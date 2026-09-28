@@ -177,21 +177,22 @@ export default function Landing() {
         <div className="bg-dots pointer-events-none absolute inset-x-0 top-0 h-[520px]" />
         <div className="rails relative grid items-center gap-12 py-16 md:py-24 lg:grid-cols-[1.15fr_1fr]">
           <div className="animate-rise">
-            <Eyebrow n={1}>Built for college clubs at SRM KTR</Eyebrow>
+            <Eyebrow n={1}>For students at SRM KTR</Eyebrow>
             <h1 className="mt-6 text-[2.5rem] leading-[1.08] font-bold sm:text-6xl md:text-[66px]">
-              <span className="text-muted">Run your club</span>
+              <span className="text-muted">Every club. Every event.</span>
               <br />
-              like it's a <span className="text-signal-ink">startup.</span>
+              <span className="text-signal-ink">One place.</span>
             </h1>
             <p className="mt-7 max-w-xl text-lg leading-relaxed text-ink-2">
-              Recruitment drives, events with QR check-in, verifiable certificates and live notifications, in one
-              workspace per club with its data isolated from every other club.
+              75+ SRM clubs, what they have coming up and who's recruiting, instead of chasing posters across
+              Instagram and WhatsApp groups. Clubs that want more get a full workspace: recruitment pipeline, QR
+              check-in and certificates.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
-              <ButtonLink to={signedIn ? '/app' : '/register'} size="lg" icon={<ArrowRight className="size-4" />} className="flex-row-reverse">
-                {signedIn ? 'Go to your clubs' : 'Start for free'}
+              <ButtonLink to={signedIn ? '/app/events' : '/register'} size="lg" icon={<ArrowRight className="size-4" />} className="flex-row-reverse">
+                {signedIn ? "See what's on" : 'Join with your SRM email'}
               </ButtonLink>
-              <ButtonLink to={signedIn ? '/app/explore' : '/login'} variant="outline" size="lg">
+              <ButtonLink to={signedIn ? '/app/clubs' : '/login'} variant="outline" size="lg">
                 Explore clubs
               </ButtonLink>
             </div>
@@ -338,7 +339,7 @@ export default function Landing() {
           </h2>
           <div className="mt-10 flex flex-wrap justify-center gap-3">
             <ButtonLink to={signedIn ? '/app' : '/register'} size="lg">Create your account</ButtonLink>
-            <ButtonLink to={signedIn ? '/app/explore' : '/login'} variant="outline" size="lg">Explore clubs</ButtonLink>
+            <ButtonLink to={signedIn ? '/app/clubs' : '/login'} variant="outline" size="lg">Explore clubs</ButtonLink>
           </div>
         </div>
       </section>

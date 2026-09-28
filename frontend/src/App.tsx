@@ -9,12 +9,16 @@ import { ForgotPassword, Login, Register, ResetPassword, VerifyEmail } from './p
 import Verify from './pages/Verify'
 import NotFound from './pages/NotFound'
 import Home from './pages/app/Home'
-import Explore from './pages/app/Explore'
 import ClubPublic from './pages/app/ClubPublic'
 import PublicEvent from './pages/app/PublicEvent'
 import ApplyDrive from './pages/app/ApplyDrive'
 import Notifications from './pages/app/Notifications'
 import Platform from './pages/app/Platform'
+import WhatsOn from './pages/campus/WhatsOn'
+import Clubs from './pages/campus/Clubs'
+import Recruiting from './pages/campus/Recruiting'
+import ClubListing from './pages/campus/ClubListing'
+import Moderation from './pages/campus/Moderation'
 import Dashboard from './pages/club/Dashboard'
 import Events from './pages/club/Events'
 import EventManage from './pages/club/EventManage'
@@ -52,7 +56,13 @@ export default function App() {
 
       <Route path="/app" element={<RequireAuth><AppLayout /></RequireAuth>}>
         <Route index element={<Home />} />
-        <Route path="explore" element={<Explore />} />
+        <Route path="events" element={<WhatsOn />} />
+        <Route path="clubs" element={<Clubs />} />
+        <Route path="recruiting" element={<Recruiting />} />
+        <Route path="directory/:slug" element={<ClubListing />} />
+        <Route path="moderation" element={<Moderation />} />
+        {/* the old ClubHub-only directory: the campus directory covers every club now */}
+        <Route path="explore" element={<Navigate to="/app/clubs" replace />} />
         <Route path="notifications" element={<Notifications />} />
         <Route path="platform" element={<Platform />} />
         <Route path="clubs/:slug/events/:eventId" element={<PublicEvent />} />

@@ -173,7 +173,7 @@ export function Register() {
         setAwaitingEmail(true)
       } else {
         queryClient.clear()
-        navigate('/app/explore', { replace: true })
+        navigate('/app', { replace: true })
       }
     } catch (err) {
       setError(err)
