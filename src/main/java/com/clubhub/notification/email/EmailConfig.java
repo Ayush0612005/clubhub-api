@@ -14,6 +14,13 @@ import software.amazon.awssdk.services.sesv2.model.Content;
 import software.amazon.awssdk.services.sesv2.model.Destination;
 import software.amazon.awssdk.services.sesv2.model.EmailContent;
 import software.amazon.awssdk.services.sesv2.model.Message;
+import org.springframework.http.MediaType;
+import org.springframework.web.client.RestClient;
+
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * clubhub.mail.provider=ses sends through Amazon SES; anything else (the local default) only logs,
@@ -39,9 +46,51 @@ public class EmailConfig {
                         .build()).build()));
     }
 
+    /**
+     * Brevo's HTTPS API (not SMTP): free hosts like Render block outbound SMTP ports, HTTPS always works.
+     * Free tier: 300 emails/day.
+     */
+    @Bean
+    @ConditionalOnProperty(name = "clubhub.mail.provider", havingValue = "brevo")
+    EmailSender brevoEmailSender(@Value("${clubhub.mail.from}") String from,
+                                 @Value("${clubhub.mail.brevo.api-key}") String apiKey) {
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new IllegalStateException("clubhub.mail.provider=brevo needs BREVO_API_KEY");
+        }
+        Sender sender = Sender.parse(from);
+        RestClient brevo = RestClient.builder()
+                .baseUrl("https://api.brevo.com/v3")
+                .defaultHeader("api-key", apiKey)
+                .build();
+        return (to, subject, body) -> brevo.post()
+                .uri("/smtp/email")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of(
+                        "sender", Map.of("name", sender.name(), "email", sender.email()),
+                        "to", List.of(Map.of("email", to)),
+                        "subject", subject,
+                        "textContent", body))
+                .retrieve()
+                .toBodilessEntity(); // non-2xx throws, and the caller logs it
+    }
+
     @Bean
     @ConditionalOnProperty(name = "clubhub.mail.provider", havingValue = "log", matchIfMissing = true)
     EmailSender loggingEmailSender() {
-        return (to, subject, body) -> log.info("[email not sent: provider=log] to={} subject=\"{}\"", to, subject);
+        // the body is logged so local dev can click verification/reset links; this provider never emails anyone
+        return (to, subject, body) -> log.info("[email not sent: provider=log] to={} subject=\"{}\"\n{}", to, subject, body);
+    }
+
+    /** "ClubHub <no-reply@example.com>" or a bare address. */
+    record Sender(String name, String email) {
+        private static final Pattern NAMED = Pattern.compile("^\\s*(.*?)\\s*<\\s*([^>\\s]+)\\s*>\\s*$");
+
+        static Sender parse(String from) {
+            Matcher m = NAMED.matcher(from);
+            if (m.matches()) {
+                return new Sender(m.group(1).isBlank() ? "ClubHub" : m.group(1), m.group(2));
+            }
+            return new Sender("ClubHub", from.trim());
+        }
     }
 }

@@ -25,6 +25,21 @@ public final class AuthDtos {
     public record UserResponse(UUID id, String email, String fullName) {
     }
 
+    /** verificationRequired: true = we emailed a link and login is blocked until it's clicked. */
+    public record RegisterResponse(UUID id, String email, String fullName, boolean verificationRequired) {
+    }
+
+    public record EmailRequest(@NotBlank @Email @Size(max = 254) String email) {
+    }
+
+    public record TokenRequest(@NotBlank @Size(max = 100) String token) {
+    }
+
+    public record ResetPasswordRequest(
+            @NotBlank @Size(max = 100) String token,
+            @NotBlank @Size(min = 8, max = 72) String password) {
+    }
+
     /** clubSlug (optional): keep the new access token scoped to this club, re-checking membership. */
     public record RefreshRequest(@NotBlank String refreshToken, String clubSlug) {
     }

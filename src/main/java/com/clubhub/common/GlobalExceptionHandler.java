@@ -33,6 +33,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, e.getMessage());
     }
 
+    @ExceptionHandler(AuthExceptions.EmailNotVerifiedException.class)
+    ProblemDetail handleEmailNotVerified(AuthExceptions.EmailNotVerifiedException e) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, e.getMessage());
+        problem.setProperty("code", "EMAIL_NOT_VERIFIED"); // lets the UI offer "resend link"
+        return problem;
+    }
+
+    @ExceptionHandler(AuthExceptions.InvalidEmailTokenException.class)
+    ProblemDetail handleInvalidEmailToken(AuthExceptions.InvalidEmailTokenException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
+
     @ExceptionHandler(AuthExceptions.InvalidCredentialsException.class)
     ProblemDetail handleBadCredentials(AuthExceptions.InvalidCredentialsException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, e.getMessage());

@@ -4,6 +4,9 @@ import com.clubhub.auth.AuthDtos.ActiveClub;
 import com.clubhub.auth.AuthDtos.ClubTokenResponse;
 import com.clubhub.auth.AuthDtos.LoginRequest;
 import com.clubhub.auth.AuthDtos.RegisterRequest;
+import com.clubhub.auth.AuthDtos.RegisterResponse;
+import com.clubhub.auth.AuthExceptions.EmailNotVerifiedException;
+import org.springframework.beans.factory.annotation.Value;
 import com.clubhub.auth.AuthDtos.TokenResponse;
 import com.clubhub.auth.AuthDtos.UserResponse;
 import com.clubhub.auth.AuthExceptions.EmailAlreadyUsedException;
@@ -33,13 +36,22 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     private final ClubAccessService clubAccessService;
     private final EmailPolicy emailPolicy;
+    private final EmailTokenService emailTokens;
+    private final AccountEmailService accountEmails;
+    /** On: new accounts must click an emailed link before they can log in. */
+    private final boolean requireEmailVerification;
     /** Hash compared against when the email is unknown, so both failure paths take the same time. */
     private final String dummyHash;
 
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                        JwtTokenService tokenService, RefreshTokenService refreshTokenService,
-                       ClubAccessService clubAccessService, EmailPolicy emailPolicy) {
+                       ClubAccessService clubAccessService, EmailPolicy emailPolicy,
+                       EmailTokenService emailTokens, AccountEmailService accountEmails,
+                       @Value("${clubhub.auth.email-verification:false}") boolean requireEmailVerification) {
         this.emailPolicy = emailPolicy;
+        this.emailTokens = emailTokens;
+        this.accountEmails = accountEmails;
+        this.requireEmailVerification = requireEmailVerification;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
@@ -49,16 +61,23 @@ public class AuthService {
     }
 
     @Transactional
-    public UserResponse register(RegisterRequest request) {
+    public RegisterResponse register(RegisterRequest request) {
         String email = User.normalizeEmail(request.email());
         emailPolicy.requireAllowed(email);
         if (userRepository.existsByEmail(email)) {
             throw new EmailAlreadyUsedException();
         }
         try {
-            User user = userRepository.saveAndFlush(
-                    new User(email, passwordEncoder.encode(request.password()), request.fullName().trim()));
-            return new UserResponse(user.getId(), user.getEmail(), user.getFullName());
+            User newUser = new User(email, passwordEncoder.encode(request.password()), request.fullName().trim());
+            if (!requireEmailVerification) {
+                newUser.markEmailVerified(); // admitted under the rules of the time; stays valid if verification is switched on later
+            }
+            User user = userRepository.saveAndFlush(newUser);
+            if (requireEmailVerification) {
+                accountEmails.sendVerification(user.getEmail(), user.getFullName(),
+                        emailTokens.issue(user.getId(), EmailToken.Purpose.VERIFY_EMAIL));
+            }
+            return new RegisterResponse(user.getId(), user.getEmail(), user.getFullName(), requireEmailVerification);
         } catch (DataIntegrityViolationException e) {
             // two concurrent registrations passed existsByEmail; the unique index caught the second
             throw new EmailAlreadyUsedException();
@@ -78,6 +97,10 @@ public class AuthService {
 
         if (user.isEmpty() || !passwordMatches || !user.get().isEnabled()) {
             throw new InvalidCredentialsException();
+        }
+        // after the password check: only the real owner learns the account exists but is unconfirmed
+        if (requireEmailVerification && !user.get().isEmailVerified()) {
+            throw new EmailNotVerifiedException();
         }
         IssuedRefreshToken refresh = refreshTokenService.issueForNewLogin(user.get().getId());
         return tokens(user.get(), refresh, Optional.empty());

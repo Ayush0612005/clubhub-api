@@ -46,9 +46,11 @@ clubhub:
     # per club requests come from its plan (FREE 300/min, PRO 3000/min); >0 here overrides for all clubs
     club-per-minute-override: 0
   mail:
-    # "log" (default: nothing is sent, only logged) or "ses" (Amazon SES, production)
+    # "log" (default: nothing is sent, only logged), "brevo" (free HTTPS API) or "ses" (Amazon SES)
     provider: ${CLUBHUB_MAIL_PROVIDER:log}
     from: ${CLUBHUB_MAIL_FROM:ClubHub <no-reply@clubhub.local>}
+    brevo:
+      api-key: ${BREVO_API_KEY:}
   storage:
     bucket: ${CLUBHUB_S3_BUCKET:clubhub-dev}
     region: ${AWS_REGION:ap-south-1}
@@ -71,6 +73,8 @@ clubhub:
     allowed-email-domains: ${CLUBHUB_ALLOWED_EMAIL_DOMAINS:srmist.edu.in}
     # individual addresses allowed on top of the domains (the platform admin email always is)
     extra-allowed-emails: ${CLUBHUB_EXTRA_ALLOWED_EMAILS:}
+    # new accounts must click an emailed link before logging in (needs a real mail provider)
+    email-verification: ${CLUBHUB_EMAIL_VERIFICATION:false}
   bootstrap:
     # Existing account to promote to PLATFORM_ADMIN at startup (empty = do nothing)
     platform-admin-email: ${CLUBHUB_ADMIN_EMAIL:}
