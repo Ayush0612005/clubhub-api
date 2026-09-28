@@ -53,6 +53,15 @@ class AuthControllerTest {
     }
 
     @Test
+    void nonCollegeEmailCannotRegisterOrLogIn() throws Exception {
+        register("someone@gmail.com", "password-123", "Outsider")
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("@srmist.edu.in")));
+
+        login("someone@gmail.com", "password-123").andExpect(status().isForbidden());
+    }
+
+    @Test
     void weakOrInvalidInputIs400() throws Exception {
         register("not-an-email", "short", "").andExpect(status().isBadRequest());
     }

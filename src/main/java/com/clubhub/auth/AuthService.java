@@ -32,12 +32,14 @@ public class AuthService {
     private final JwtTokenService tokenService;
     private final RefreshTokenService refreshTokenService;
     private final ClubAccessService clubAccessService;
+    private final EmailPolicy emailPolicy;
     /** Hash compared against when the email is unknown, so both failure paths take the same time. */
     private final String dummyHash;
 
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                        JwtTokenService tokenService, RefreshTokenService refreshTokenService,
-                       ClubAccessService clubAccessService) {
+                       ClubAccessService clubAccessService, EmailPolicy emailPolicy) {
+        this.emailPolicy = emailPolicy;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
@@ -49,6 +51,7 @@ public class AuthService {
     @Transactional
     public UserResponse register(RegisterRequest request) {
         String email = User.normalizeEmail(request.email());
+        emailPolicy.requireAllowed(email);
         if (userRepository.existsByEmail(email)) {
             throw new EmailAlreadyUsedException();
         }
@@ -64,6 +67,8 @@ public class AuthService {
 
     @Transactional
     public TokenResponse login(LoginRequest request) {
+        // checked before any lookup: the rule is public, so this answer can't reveal whether the account exists
+        emailPolicy.requireAllowed(request.email());
         Optional<User> user = userRepository.findByEmail(User.normalizeEmail(request.email()));
 
         // Always run one BCrypt comparison. Returning early for unknown emails would make those
@@ -90,6 +95,7 @@ public class AuthService {
         Rotation rotation = refreshTokenService.rotate(refreshToken);
         User user = userRepository.findById(rotation.userId())
                 .filter(User::isEnabled)
+                .filter(u -> emailPolicy.isAllowed(u.getEmail())) // pre-rule accounts can't keep a session alive
                 .orElseThrow(InvalidRefreshTokenException::new);
         Optional<ClubClaims> club = clubSlug == null || clubSlug.isBlank()
                 ? Optional.empty()

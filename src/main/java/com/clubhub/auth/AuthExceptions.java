@@ -11,6 +11,15 @@ public final class AuthExceptions {
         }
     }
 
+    /** The address is outside the allowed college domains. The rule is public, so saying so leaks nothing. */
+    public static class EmailNotAllowedException extends RuntimeException {
+        public EmailNotAllowedException(java.util.Collection<String> allowedDomains) {
+            super("Use your college email ("
+                    + String.join(", ", allowedDomains.stream().sorted().map(d -> "@" + d).toList())
+                    + ") to sign up or sign in");
+        }
+    }
+
     /** Unknown, expired, revoked or reused refresh token: the client must log in again. */
     public static class InvalidRefreshTokenException extends RuntimeException {
         public InvalidRefreshTokenException() {
