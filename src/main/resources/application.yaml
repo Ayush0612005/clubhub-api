@@ -66,6 +66,11 @@ clubhub:
     issuer: clubhub-api
     access-token-ttl: 15m
     refresh-token-ttl: 14d
+  auth:
+    # only these email domains may register or sign in (comma-separated; empty = anyone)
+    allowed-email-domains: ${CLUBHUB_ALLOWED_EMAIL_DOMAINS:srmist.edu.in}
+    # individual addresses allowed on top of the domains (the platform admin email always is)
+    extra-allowed-emails: ${CLUBHUB_EXTRA_ALLOWED_EMAILS:}
   bootstrap:
     # Existing account to promote to PLATFORM_ADMIN at startup (empty = do nothing)
     platform-admin-email: ${CLUBHUB_ADMIN_EMAIL:}

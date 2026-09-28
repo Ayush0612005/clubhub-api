@@ -28,6 +28,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
     }
 
+    @ExceptionHandler(AuthExceptions.EmailNotAllowedException.class)
+    ProblemDetail handleEmailNotAllowed(AuthExceptions.EmailNotAllowedException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, e.getMessage());
+    }
+
     @ExceptionHandler(AuthExceptions.InvalidCredentialsException.class)
     ProblemDetail handleBadCredentials(AuthExceptions.InvalidCredentialsException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, e.getMessage());
