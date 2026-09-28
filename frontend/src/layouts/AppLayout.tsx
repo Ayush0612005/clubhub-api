@@ -111,7 +111,8 @@ export default function AppLayout() {
 
   return (
     <div className="min-h-screen bg-paper">
-      <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-line bg-paper p-4 lg:block">
+      {/* z-20: <main> is positioned and comes later in the DOM, so without this it paints over the sidebar and eats its clicks */}
+      <aside className="fixed inset-y-0 left-0 z-20 hidden w-72 border-r border-line bg-paper p-4 lg:block">
         <Sidebar live={live} />
       </aside>
 
