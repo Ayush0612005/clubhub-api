@@ -24,6 +24,11 @@ export default function Notifications() {
     queryKey: ['notifications', 'inbox', unreadOnly, page],
     queryFn: () => api.get<Page<Notification>>(`/api/notifications?unreadOnly=${unreadOnly}&page=${page}&size=20`),
   })
+  // same key as the sidebar badge, so this shares its cached count instead of refetching
+  const unread = useQuery({
+    queryKey: ['notifications', 'unread'],
+    queryFn: () => api.get<{ unread: number }>('/api/notifications/unread-count'),
+  })
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['notifications'] })
   const readAll = useMutation({ mutationFn: () => api.post('/api/notifications/read-all'), onSuccess: invalidate })
   const read = useMutation({ mutationFn: (id: number) => api.post(`/api/notifications/${id}/read`), onSuccess: invalidate })
@@ -39,7 +44,13 @@ export default function Notifications() {
         eyebrow="Inbox"
         title="Notifications"
         description="Everything from all your clubs, in real time."
-        actions={<Button variant="outline" icon={<CheckCheck className="size-4" />} loading={readAll.isPending} onClick={() => readAll.mutate()}>Mark all read</Button>}
+        actions={
+          !!unread.data?.unread && (
+            <Button variant="outline" icon={<CheckCheck className="size-4" />} loading={readAll.isPending} onClick={() => readAll.mutate()}>
+              Mark all read
+            </Button>
+          )
+        }
       />
 
       <div className="mb-4 inline-flex rounded-xl bg-paper-2 p-1 text-sm">
@@ -58,7 +69,13 @@ export default function Notifications() {
       </div>
 
       {inbox.isLoading && <div className="space-y-2"><Skeleton className="h-20" /><Skeleton className="h-20" /><Skeleton className="h-20" /></div>}
-      {inbox.data?.content.length === 0 && <EmptyState icon={<BellOff className="size-5" />} title={unreadOnly ? 'All caught up' : 'No notifications yet'} />}
+      {inbox.data?.content.length === 0 && (
+        <EmptyState icon={<BellOff className="size-5" />} title={unreadOnly ? 'All caught up' : 'No notifications yet'}>
+          {unreadOnly
+            ? 'You have read everything.'
+            : 'When a club moves your application, publishes an event or issues you a certificate, it shows up here instantly.'}
+        </EmptyState>
+      )}
 
       {!!inbox.data?.content.length && (
         <Card className="divide-y divide-line overflow-hidden">

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowUpRight, Search } from 'lucide-react'
+import { ArrowUpRight, Compass, Search } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { Avatar, EmptyState, PageHeader, Skeleton } from '../../components/ui'
@@ -37,7 +37,15 @@ export default function Explore() {
           {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-36" />)}
         </div>
       )}
-      {shown?.length === 0 && <EmptyState icon={<Search className="size-5" />} title="No clubs match">Try a different name.</EmptyState>}
+      {directory.data?.length === 0 && (
+        <EmptyState icon={<Compass className="size-5" />} title="No clubs on ClubHub yet">
+          SRM KTR clubs are being onboarded. Once your club joins, its events and recruitment drives show up here.
+        </EmptyState>
+      )}
+      {!!directory.data?.length && shown?.length === 0 && (
+        <EmptyState icon={<Search className="size-5" />} title={`No clubs match "${query}"`}>Try a different name.</EmptyState>
+      )}
+      {directory.isError && <EmptyState icon={<Search className="size-5" />} title="Couldn't load clubs">Check your connection and refresh the page.</EmptyState>}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {shown?.map((club, i) => (

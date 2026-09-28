@@ -161,6 +161,8 @@
     background:
       radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--color-signal) 22%, transparent), transparent 55%),
       radial-gradient(circle at 85% 5%, color-mix(in srgb, #3b82f6 16%, transparent), transparent 60%);
+    /* on wide screens the circles are bigger than the box and would end in a hard line: fade them out */
+    mask-image: linear-gradient(to bottom, black 40%, transparent);
   }
 
   /* glossy highlight on solid buttons */
