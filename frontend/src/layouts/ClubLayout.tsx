@@ -57,7 +57,8 @@ export default function ClubLayout() {
         <Avatar name={club.name} size={52} square />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="truncate text-2xl font-bold sm:text-3xl">{club.name}</h1>
+            {/* phones: wrap to two lines instead of cutting the club's name off */}
+            <h1 className="line-clamp-2 text-2xl font-bold break-words sm:truncate sm:text-3xl">{club.name}</h1>
             <StatusBadge status={club.plan} />
           </div>
           <p className="mt-0.5 text-sm text-muted">

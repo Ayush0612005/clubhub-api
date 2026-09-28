@@ -5,7 +5,8 @@ import { Logo, ThemeToggle } from '../components/brand'
 import { ButtonLink } from '../components/ui'
 import { useSession } from '../hooks/useAuth'
 
-const clubs = ['Coding Club', 'Robotics Society', 'Music Club', 'E-Cell', 'Photography Club', 'Dance Crew', 'Quiz Society', 'AI/ML Guild', 'Drama Club', 'Rotaract']
+// kinds of clubs, not real club names: listing a real club here would suggest it uses ClubHub
+const clubs = ['Coding clubs', 'Robotics teams', 'Music', 'Entrepreneurship cells', 'Dance', 'Quiz', 'IEEE & ACM chapters', 'Literature', 'Social service', 'Department associations']
 
 /** Nested outlines stepping towards one corner: the page's line-art motif. */
 function ConcentricArt({ className }: { className?: string }) {
@@ -224,7 +225,7 @@ export default function Landing() {
         <dl className="relative mt-16 grid gap-px border-y border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
           {[
             ['1', 'PostgreSQL schema per club'],
-            ['160+', 'Integration tests on real infra'],
+            ['180+', 'Integration tests on real infra'],
             ['4', 'Roles, from member to platform admin'],
             ['0', 'Paper forms at the door'],
           ].map(([value, label]) => (
@@ -289,7 +290,7 @@ export default function Landing() {
             <Eyebrow n={5}>Under the hood</Eyebrow>
             <Heading lead="A real multi-tenant SaaS," className="sm:text-[2.6rem]">not a template.</Heading>
             <p className="mt-6 leading-relaxed text-muted">
-              Isolated tenants, signed tokens, event-driven notifications and 160+ integration tests against real
+              Isolated tenants, signed tokens, event-driven notifications and 180+ integration tests against real
               PostgreSQL, Kafka and Redis.
             </p>
             <a
