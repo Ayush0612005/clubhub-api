@@ -6,7 +6,10 @@ import com.clubhub.auth.AuthDtos.RefreshRequest;
 import com.clubhub.auth.AuthDtos.SwitchClubRequest;
 import com.clubhub.auth.AuthDtos.RegisterRequest;
 import com.clubhub.auth.AuthDtos.TokenResponse;
-import com.clubhub.auth.AuthDtos.UserResponse;
+import com.clubhub.auth.AuthDtos.EmailRequest;
+import com.clubhub.auth.AuthDtos.RegisterResponse;
+import com.clubhub.auth.AuthDtos.ResetPasswordRequest;
+import com.clubhub.auth.AuthDtos.TokenRequest;
 import com.clubhub.security.JwtTokenService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -28,15 +31,43 @@ import java.util.UUID;
 public class AuthController {
 
     private final AuthService authService;
+    private final AccountRecoveryService recovery;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, AccountRecoveryService recovery) {
         this.authService = authService;
+        this.recovery = recovery;
     }
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public UserResponse register(@Valid @RequestBody RegisterRequest request) {
+    public RegisterResponse register(@Valid @RequestBody RegisterRequest request) {
         return authService.register(request);
+    }
+
+    @PostMapping("/verify-email")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void verifyEmail(@Valid @RequestBody TokenRequest request) {
+        recovery.verifyEmail(request.token());
+    }
+
+    /** Always 202, whether or not the address has an unverified account. */
+    @PostMapping("/resend-verification")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void resendVerification(@Valid @RequestBody EmailRequest request) {
+        recovery.resendVerification(request.email());
+    }
+
+    /** Always 202, whether or not the address has an account. */
+    @PostMapping("/forgot-password")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void forgotPassword(@Valid @RequestBody EmailRequest request) {
+        recovery.requestPasswordReset(request.email());
+    }
+
+    @PostMapping("/reset-password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        recovery.resetPassword(request.token(), request.password());
     }
 
     @PostMapping("/login")

@@ -5,7 +5,7 @@ import { useSession } from './hooks/useAuth'
 import AppLayout from './layouts/AppLayout'
 import ClubLayout from './layouts/ClubLayout'
 import Landing from './pages/Landing'
-import { Login, Register } from './pages/Auth'
+import { ForgotPassword, Login, Register, ResetPassword, VerifyEmail } from './pages/Auth'
 import Verify from './pages/Verify'
 import NotFound from './pages/NotFound'
 import Home from './pages/app/Home'
@@ -44,6 +44,10 @@ export default function App() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<GuestOnly><Login /></GuestOnly>} />
       <Route path="/register" element={<GuestOnly><Register /></GuestOnly>} />
+      <Route path="/forgot-password" element={<GuestOnly><ForgotPassword /></GuestOnly>} />
+      {/* email links work whether or not this browser is signed in */}
+      <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/verify/:slug/:id" element={<Verify />} />
 
       <Route path="/app" element={<RequireAuth><AppLayout /></RequireAuth>}>

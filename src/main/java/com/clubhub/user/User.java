@@ -41,6 +41,10 @@ public class User {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    /** Null until the user clicks the link we emailed them. */
+    @Column(name = "email_verified_at")
+    private Instant emailVerifiedAt;
+
     protected User() {
         // for JPA
     }
@@ -62,6 +66,17 @@ public class User {
         this.platformRole = PlatformRole.PLATFORM_ADMIN;
     }
 
+    public void markEmailVerified() {
+        if (emailVerifiedAt == null) {
+            emailVerifiedAt = Instant.now();
+        }
+    }
+
+    public void changePasswordHash(String newPasswordHash) {
+        this.passwordHash = newPasswordHash;
+    }
+
+    public boolean isEmailVerified() { return emailVerifiedAt != null; }
     public UUID getId() { return id; }
     public String getEmail() { return email; }
     public String getPasswordHash() { return passwordHash; }

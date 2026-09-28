@@ -20,6 +20,20 @@ public final class AuthExceptions {
         }
     }
 
+    /** Only thrown after the password matched, so it doesn't reveal which addresses have accounts. */
+    public static class EmailNotVerifiedException extends RuntimeException {
+        public EmailNotVerifiedException() {
+            super("Confirm your email first: open the link we sent you, or ask for a new one");
+        }
+    }
+
+    /** Unknown, expired, already used or wrong-purpose email link: all look the same to the caller. */
+    public static class InvalidEmailTokenException extends RuntimeException {
+        public InvalidEmailTokenException() {
+            super("This link is invalid or has expired. Ask for a new one.");
+        }
+    }
+
     /** Unknown, expired, revoked or reused refresh token: the client must log in again. */
     public static class InvalidRefreshTokenException extends RuntimeException {
         public InvalidRefreshTokenException() {

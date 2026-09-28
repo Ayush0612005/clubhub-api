@@ -116,10 +116,18 @@ export async function login(email: string, password: string) {
   })
 }
 
-export async function register(fullName: string, email: string, password: string) {
-  await json('POST', '/api/auth/register', { body: { fullName, email, password }, auth: false })
-  await login(email, password)
+/** Returns true when the user must click the emailed link first (no session is created then). */
+export async function register(fullName: string, email: string, password: string): Promise<{ verificationRequired: boolean }> {
+  const res = await json<{ verificationRequired: boolean }>('POST', '/api/auth/register', { body: { fullName, email, password }, auth: false })
+  if (!res.verificationRequired) await login(email, password)
+  return { verificationRequired: res.verificationRequired }
 }
+
+export const verifyEmail = (token: string) => json<void>('POST', '/api/auth/verify-email', { body: { token }, auth: false })
+export const resendVerification = (email: string) => json<void>('POST', '/api/auth/resend-verification', { body: { email }, auth: false })
+export const forgotPassword = (email: string) => json<void>('POST', '/api/auth/forgot-password', { body: { email }, auth: false })
+export const resetPassword = (token: string, password: string) =>
+  json<void>('POST', '/api/auth/reset-password', { body: { token, password }, auth: false })
 
 export async function logout() {
   const current = session.get()

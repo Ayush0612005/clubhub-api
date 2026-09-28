@@ -15,7 +15,8 @@ Every service below has a free tier that needs **no credit card**. Nothing here 
 | PostgreSQL | [Neon](https://neon.tech) free | 0.5 GB | Compute pauses when idle (wakes in ~1 s) |
 | Redis | [Upstash](https://upstash.com) free | 256 MB, 500K commands/month | Enough for rate limiting |
 | Events | in-process (no broker) | | One instance, no retries/DLT; Kafka is optional via the `cloud-kafka` profile |
-| Files / email | not used | | Poster uploads need S3; email stays in `log` mode |
+| Email | [Brevo](https://brevo.com) free | 300 emails/day | HTTPS API, because Render's free tier blocks outbound SMTP ports |
+| Files | not used | | Poster uploads need S3 |
 
 Free tiers change. Check each pricing page before you rely on it.
 
@@ -78,7 +79,28 @@ service's `service.key`, `service.cert`, `ca.pem`). See `application-cloud-kafka
 4. **Deploy**. Then put the final Vercel URL into Render's `CLUBHUB_APP_URL` / `CLUBHUB_ALLOWED_ORIGINS`
    (Render redeploys automatically).
 
-## 6. First run
+## 6. Email: Brevo (verification and password reset)
+
+Without this, the API runs with `CLUBHUB_MAIL_PROVIDER=log`: nothing is emailed and anyone can sign up
+with any `@srmist.edu.in` address they type.
+
+1. Sign up at brevo.com → **Senders, Domains & Dedicated IPs → Senders** → add and confirm the address
+   emails should come from.
+2. **SMTP & API → API Keys → Generate a new API key**.
+3. In Render → **Environment**, add, then **Save, rebuild, and deploy**:
+
+   | Variable | Value |
+   |---|---|
+   | `BREVO_API_KEY` | the key from step 2 |
+   | `CLUBHUB_MAIL_PROVIDER` | `brevo` |
+   | `CLUBHUB_MAIL_FROM` | `ClubHub <the sender you confirmed in step 1>` |
+   | `CLUBHUB_EMAIL_VERIFICATION` | `true` (new accounts must click an emailed link before logging in) |
+
+Accounts that existed before verification was switched on stay active. Only students can join:
+`CLUBHUB_ALLOWED_EMAIL_DOMAINS` defaults to `srmist.edu.in`, and the `CLUBHUB_ADMIN_EMAIL` address is
+always allowed as an exception.
+
+## 7. First run
 
 1. Open the Vercel URL → **Get started** → register with `CLUBHUB_ADMIN_EMAIL`.
 2. In Render, **Manual Deploy → Restart** once: the admin is promoted at startup. Log out and back in.
