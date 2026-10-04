@@ -66,6 +66,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, "Your role does not allow this action");
     }
 
+    @ExceptionHandler(com.clubhub.demo.DemoGuard.OutsideSandboxException.class)
+    ProblemDetail outsideDemoSandbox(com.clubhub.demo.DemoGuard.OutsideSandboxException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, e.getMessage());
+    }
+
     @ExceptionHandler(ConflictException.class)
     ProblemDetail handleStateConflict(ConflictException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());

@@ -17,7 +17,7 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
     // resend/forgot send real emails: without a limit they'd be a free spam cannon and burn the mail quota
     private static final Set<String> LIMITED = Set.of("/api/auth/login", "/api/auth/register", "/api/auth/refresh",
             "/api/auth/verify-email", "/api/auth/resend-verification", "/api/auth/forgot-password",
-            "/api/auth/reset-password");
+            "/api/auth/reset-password", "/api/auth/demo");
 
     private final RateLimitGuard guard;
 

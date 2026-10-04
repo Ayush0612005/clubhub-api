@@ -3,6 +3,8 @@ package com.clubhub.membership;
 import com.clubhub.audit.AuditService;
 import com.clubhub.common.ConflictException;
 import com.clubhub.common.NotFoundException;
+import com.clubhub.demo.DemoAccounts;
+import com.clubhub.tenant.TenantRepository;
 import com.clubhub.membership.MemberDtos.MemberResponse;
 import com.clubhub.plan.PlanService;
 import com.clubhub.user.User;
@@ -29,9 +31,11 @@ public class MembershipService {
     private final UserRepository users;
     private final AuditService audit;
     private final PlanService plans;
+    private final TenantRepository tenants;
 
     public MembershipService(MembershipRepository memberships, UserRepository users, AuditService audit,
-                             PlanService plans) {
+                             PlanService plans, TenantRepository tenants) {
+        this.tenants = tenants;
         this.memberships = memberships;
         this.users = users;
         this.audit = audit;
@@ -56,6 +60,14 @@ public class MembershipService {
                 .orElseThrow(() -> new NotFoundException("No account with that email: they must register first"));
         if (memberships.findByUserIdAndTenantId(user.getId(), tenantId).isPresent()) {
             throw new ConflictException("Already a member of this club");
+        }
+        // the public sandbox must not pull real students in (they'd get its notifications), and its
+        // made-up people must not end up in real clubs
+        boolean demoClub = tenants.findById(tenantId).map(t -> DemoAccounts.CLUB_SLUG.equals(t.getSlug())).orElse(false);
+        if (demoClub != DemoAccounts.isDemoEmail(user.getEmail())) {
+            throw new ConflictException(demoClub
+                    ? "The demo club only takes its demo people (addresses ending @" + DemoAccounts.DOMAIN + ")"
+                    : "Demo accounts can't join real clubs");
         }
         plans.requireMemberRoom(tenantId);
         Membership saved;

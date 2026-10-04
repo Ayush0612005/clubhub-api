@@ -4,10 +4,11 @@ import { Bell, CalendarDays, Compass, House, Inbox, LogOut, Megaphone, Menu, Plu
 import { useState, type ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { Logo, ThemeToggle } from '../components/brand'
+import { DemoButton } from '../components/DemoButton'
 import { Avatar, StatusBadge } from '../components/ui'
 import { useMe, useMyClubs, useSession } from '../hooks/useAuth'
 import { useLiveNotifications } from '../hooks/useLiveNotifications'
-import { api, logout } from '../lib/api'
+import { api, DEMO_EMAIL, logout } from '../lib/api'
 
 function NavItem({ to, icon, children, end, badge }: { to: string; icon: ReactNode; children: ReactNode; end?: boolean; badge?: number }) {
   return (
@@ -100,7 +101,8 @@ function Sidebar({ live, onNavigate }: { live: boolean; onNavigate?: () => void 
 
       {!signedIn ? (
         <div className="mt-4 space-y-3 rounded-lg border border-line bg-surface p-3">
-          <p className="text-[13px] leading-snug text-muted">You're browsing as a guest. Sign in to suggest events and manage your clubs.</p>
+          <p className="text-[13px] leading-snug text-muted">You're browsing as a guest. Sign in to suggest events, or try a sandbox club as its admin.</p>
+          <DemoButton size="sm" variant="outline" label="Try the demo club" className="w-full" />
           <div className="flex items-center gap-2">
             <Link to="/login" state={{ from: location.pathname }} className="flex-1 rounded-md bg-signal px-3 py-2 text-center text-sm font-semibold text-on-signal hover:opacity-90">Log in</Link>
             <Link to="/register" className="flex-1 rounded-md border border-line px-3 py-2 text-center text-sm font-medium hover:bg-paper-2">Sign up</Link>
@@ -112,7 +114,7 @@ function Sidebar({ live, onNavigate }: { live: boolean; onNavigate?: () => void 
         <Avatar name={me.data?.fullName ?? '…'} size={34} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{me.data?.fullName ?? ' '}</p>
-          <p className="truncate text-[11px] text-muted">{me.data?.email}</p>
+          <p className="truncate text-[11px] text-muted">{me.data?.email === DEMO_EMAIL ? 'Demo sandbox account' : me.data?.email}</p>
         </div>
         <ThemeToggle />
         <button
@@ -134,6 +136,7 @@ function Sidebar({ live, onNavigate }: { live: boolean; onNavigate?: () => void 
 export default function AppLayout() {
   const [open, setOpen] = useState(false)
   const live = useLiveNotifications() // one WebSocket per tab, owned by the layout
+  const isDemo = useMe().data?.email === DEMO_EMAIL
 
   return (
     <div className="min-h-screen bg-paper">
@@ -163,6 +166,15 @@ export default function AppLayout() {
       <main className="relative lg:pl-72">
         <div className="glow pointer-events-none absolute inset-x-0 top-0 h-80 opacity-60" />
         <div className="relative mx-auto max-w-6xl px-4 py-8 sm:px-8 lg:py-10">
+          {isDemo && (
+            <div className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-signal/30 bg-signal-50 px-4 py-2.5 text-sm">
+              <span className="font-mono text-[11px] font-semibold tracking-wider text-signal-ink uppercase">Demo</span>
+              <span className="flex-1 text-ink-2">
+                You're the admin of a shared sandbox club. Move applicants, scan tickets, issue certificates: it all resets every hour.
+              </span>
+              <Link to="/register" className="font-semibold text-ink underline decoration-signal underline-offset-4">Create a real account</Link>
+            </div>
+          )}
           <Outlet />
         </div>
       </main>

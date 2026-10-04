@@ -37,13 +37,13 @@ public class EmailConfig {
                                @Value("${clubhub.storage.region}") String region,
                                AwsCredentialsProvider credentials) {
         SesV2Client ses = SesV2Client.builder().region(Region.of(region)).credentialsProvider(credentials).build();
-        return (to, subject, body) -> ses.sendEmail(request -> request
+        return skippingReservedDomains((to, subject, body) -> ses.sendEmail(request -> request
                 .fromEmailAddress(from)
                 .destination(Destination.builder().toAddresses(to).build())
                 .content(EmailContent.builder().simple(Message.builder()
                         .subject(Content.builder().data(subject).charset("UTF-8").build())
                         .body(Body.builder().text(Content.builder().data(body).charset("UTF-8").build()).build())
-                        .build()).build()));
+                        .build()).build())));
     }
 
     /**
@@ -62,7 +62,7 @@ public class EmailConfig {
                 .baseUrl("https://api.brevo.com/v3")
                 .defaultHeader("api-key", apiKey)
                 .build();
-        return (to, subject, body) -> brevo.post()
+        return skippingReservedDomains((to, subject, body) -> brevo.post()
                 .uri("/smtp/email")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of(
@@ -71,7 +71,28 @@ public class EmailConfig {
                         "subject", subject,
                         "textContent", body))
                 .retrieve()
-                .toBodilessEntity(); // non-2xx throws, and the caller logs it
+                .toBodilessEntity()); // non-2xx throws, and the caller logs it
+    }
+
+    /**
+     * Never hand a provider an address under a reserved test TLD (RFC 2606: .invalid, .test, .example,
+     * .localhost). The demo club's people live on .invalid; mailing them would only burn the daily quota
+     * and, through bounces, the sender's reputation.
+     */
+    static EmailSender skippingReservedDomains(EmailSender real) {
+        return (to, subject, body) -> {
+            if (isReserved(to)) {
+                log.debug("[email skipped: reserved domain] to={} subject=\"{}\"", to, subject);
+                return;
+            }
+            real.send(to, subject, body);
+        };
+    }
+
+    static boolean isReserved(String address) {
+        String lower = address == null ? "" : address.trim().toLowerCase(java.util.Locale.ROOT);
+        return lower.isEmpty() || lower.endsWith(".invalid") || lower.endsWith(".test")
+                || lower.endsWith(".example") || lower.endsWith(".localhost");
     }
 
     @Bean
