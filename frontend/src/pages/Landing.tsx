@@ -4,6 +4,7 @@ import { QrArt } from '../components/art'
 import { Logo, ThemeToggle } from '../components/brand'
 import { ButtonLink } from '../components/ui'
 import { useSession } from '../hooks/useAuth'
+import { DemoButton } from '../components/DemoButton'
 
 // kinds of clubs, not real club names: listing a real club here would suggest it uses ClubHub
 const clubs = ['Coding clubs', 'Robotics teams', 'Music', 'Entrepreneurship cells', 'Dance', 'Quiz', 'IEEE & ACM chapters', 'Literature', 'Social service', 'Department associations']
@@ -189,13 +190,21 @@ export default function Landing() {
               check-in and certificates.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
-              <ButtonLink to={signedIn ? '/app/events' : '/register'} size="lg" icon={<ArrowRight className="size-4" />} className="flex-row-reverse">
-                {signedIn ? "See what's on" : 'Join with your SRM email'}
-              </ButtonLink>
-              <ButtonLink to={signedIn ? '/app/clubs' : '/login'} variant="outline" size="lg">
-                Explore clubs
+              {/* no sign-up wall: the demo drops visitors into a seeded club as its admin, browsing needs no account */}
+              {signedIn ? (
+                <ButtonLink to="/app" size="lg" icon={<ArrowRight className="size-4" />} className="flex-row-reverse">Open app</ButtonLink>
+              ) : (
+                <DemoButton />
+              )}
+              <ButtonLink to="/app/events" variant="outline" size="lg" icon={<ArrowRight className="size-4" />} className="flex-row-reverse">
+                See what's on
               </ButtonLink>
             </div>
+            {!signedIn && (
+              <p className="mt-4 text-sm text-muted">
+                No sign-up. You'll run a sandbox club as its admin: recruitment pipeline, QR check-in, certificates. It resets every hour.
+              </p>
+            )}
           </div>
           <HeroVisual />
         </div>
@@ -338,8 +347,8 @@ export default function Landing() {
             starts here.
           </h2>
           <div className="mt-10 flex flex-wrap justify-center gap-3">
-            <ButtonLink to={signedIn ? '/app' : '/register'} size="lg">Create your account</ButtonLink>
-            <ButtonLink to={signedIn ? '/app/clubs' : '/login'} variant="outline" size="lg">Explore clubs</ButtonLink>
+            {signedIn ? <ButtonLink to="/app" size="lg">Open app</ButtonLink> : <DemoButton />}
+            <ButtonLink to="/app/clubs" variant="outline" size="lg">Explore clubs</ButtonLink>
           </div>
         </div>
       </section>

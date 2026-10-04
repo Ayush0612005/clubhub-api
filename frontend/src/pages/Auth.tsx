@@ -3,6 +3,7 @@ import { CalendarCheck, CheckCircle2, Mail, QrCode, ScrollText, Users, XCircle }
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { Logo, ThemeToggle } from '../components/brand'
+import { DemoButton } from '../components/DemoButton'
 import { Button, ButtonLink, ErrorNote, Input, Spinner } from '../components/ui'
 import { ApiError, forgotPassword, login, register, resendVerification, resetPassword, verifyEmail } from '../lib/api'
 
@@ -151,6 +152,10 @@ export function Login() {
         <ErrorNote error={error} />
         <Button type="submit" className="w-full" size="lg" loading={pending}>Log in</Button>
       </form>
+      <div className="mt-6 border-t border-line pt-6 text-center">
+        <p className="mb-3 text-sm text-muted">Just looking around? No account needed.</p>
+        <DemoButton variant="outline" size="md" className="w-full" />
+      </div>
     </AuthShell>
   )
 }

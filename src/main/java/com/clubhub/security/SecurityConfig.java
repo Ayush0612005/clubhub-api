@@ -31,7 +31,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login",
                                 "/api/auth/refresh", "/api/auth/logout", "/api/auth/verify-email",
                                 "/api/auth/resend-verification", "/api/auth/forgot-password",
-                                "/api/auth/reset-password").permitAll()
+                                "/api/auth/reset-password", "/api/auth/demo").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/prometheus").permitAll()
                         // certificate verification links are printed on PDFs and opened by recruiters
                         .requestMatchers(HttpMethod.GET, "/api/verify/**").permitAll()

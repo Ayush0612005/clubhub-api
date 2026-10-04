@@ -75,6 +75,12 @@ public class AuthController {
         return authService.login(request);
     }
 
+    /** "Try the demo": signs in as the demo visitor, admin of a sandbox club that resets itself hourly. */
+    @PostMapping("/demo")
+    public TokenResponse demo() {
+        return authService.demoLogin();
+    }
+
     /** Trade a refresh token for a new access + refresh token pair (the old refresh token dies). */
     @PostMapping("/refresh")
     public TokenResponse refresh(@Valid @RequestBody RefreshRequest request) {

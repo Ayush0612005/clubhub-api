@@ -116,6 +116,20 @@ export async function login(email: string, password: string) {
   })
 }
 
+/** Signs in as the shared demo visitor, already inside the demo club as its admin. */
+export async function demoLogin() {
+  const tokens = await json<TokenResponse>('POST', '/api/auth/demo', { auth: false })
+  session.set({
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+    expiresAt: tokens.expiresAt,
+    club: tokens.club,
+  })
+  return tokens.club?.slug ?? null
+}
+
+export const DEMO_EMAIL = 'visitor@demo.clubhub.invalid'
+
 /** Returns true when the user must click the emailed link first (no session is created then). */
 export async function register(fullName: string, email: string, password: string): Promise<{ verificationRequired: boolean }> {
   const res = await json<{ verificationRequired: boolean }>('POST', '/api/auth/register', { body: { fullName, email, password }, auth: false })

@@ -14,6 +14,8 @@ import com.clubhub.auth.AuthExceptions.InvalidCredentialsException;
 import com.clubhub.auth.AuthExceptions.InvalidRefreshTokenException;
 import com.clubhub.auth.RefreshTokenService.IssuedRefreshToken;
 import com.clubhub.auth.RefreshTokenService.Rotation;
+import com.clubhub.demo.DemoAccounts;
+import com.clubhub.demo.DemoSandbox;
 import com.clubhub.security.JwtTokenService;
 import com.clubhub.security.JwtTokenService.AccessToken;
 import com.clubhub.security.JwtTokenService.ClubClaims;
@@ -38,6 +40,7 @@ public class AuthService {
     private final EmailPolicy emailPolicy;
     private final EmailTokenService emailTokens;
     private final AccountEmailService accountEmails;
+    private final DemoSandbox demoSandbox;
     /** On: new accounts must click an emailed link before they can log in. */
     private final boolean requireEmailVerification;
     /** Hash compared against when the email is unknown, so both failure paths take the same time. */
@@ -46,8 +49,9 @@ public class AuthService {
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                        JwtTokenService tokenService, RefreshTokenService refreshTokenService,
                        ClubAccessService clubAccessService, EmailPolicy emailPolicy,
-                       EmailTokenService emailTokens, AccountEmailService accountEmails,
+                       EmailTokenService emailTokens, AccountEmailService accountEmails, DemoSandbox demoSandbox,
                        @Value("${clubhub.auth.email-verification:false}") boolean requireEmailVerification) {
+        this.demoSandbox = demoSandbox;
         this.emailPolicy = emailPolicy;
         this.emailTokens = emailTokens;
         this.accountEmails = accountEmails;
@@ -107,6 +111,17 @@ public class AuthService {
     }
 
     /**
+     * One-click sign-in as the demo visitor, already switched into the demo club as its admin.
+     * No password involved: the account can't do anything outside its sandbox club, which
+     * resets itself (see DemoSandbox).
+     */
+    public TokenResponse demoLogin() {
+        User visitor = demoSandbox.prepareVisit();
+        IssuedRefreshToken refresh = refreshTokenService.issueForNewLogin(visitor.getId());
+        return tokens(visitor, refresh, clubAccessService.findAccess(visitor.getId(), DemoAccounts.CLUB_SLUG));
+    }
+
+    /**
      * Deliberately NOT @Transactional. rotate() commits its own transaction, including the family
      * revocation on reuse. An outer transaction here would be marked rollback-only by the
      * InvalidRefreshTokenException and silently undo that revocation.
@@ -118,7 +133,9 @@ public class AuthService {
         Rotation rotation = refreshTokenService.rotate(refreshToken);
         User user = userRepository.findById(rotation.userId())
                 .filter(User::isEnabled)
-                .filter(u -> emailPolicy.isAllowed(u.getEmail())) // pre-rule accounts can't keep a session alive
+                // pre-rule accounts can't keep a session alive; the demo visitor is outside the rule by design
+                .filter(u -> emailPolicy.isAllowed(u.getEmail())
+                        || (demoSandbox.isEnabled() && DemoAccounts.VISITOR_EMAIL.equals(u.getEmail())))
                 .orElseThrow(InvalidRefreshTokenException::new);
         Optional<ClubClaims> club = clubSlug == null || clubSlug.isBlank()
                 ? Optional.empty()
