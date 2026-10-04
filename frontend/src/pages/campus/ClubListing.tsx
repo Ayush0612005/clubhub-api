@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { CategoryPill, EventCard, EventFormModal, RecruitmentCard, RecruitmentFormModal } from '../../components/campus'
 import { Avatar, Button, ButtonLink, EmptyState, Skeleton } from '../../components/ui'
+import { useSignedInAction } from '../../hooks/useAuth'
 import { campus, safeUrl } from '../../lib/campus'
 
 /** One club's page in the campus directory: what it is, what it has coming up, whether it's recruiting. */
@@ -12,6 +13,7 @@ export default function ClubListing() {
   const club = useQuery({ queryKey: ['campus', 'club', slug], queryFn: () => campus.club(slug) })
   const [suggestEvent, setSuggestEvent] = useState(false)
   const [suggestRecruitment, setSuggestRecruitment] = useState(false)
+  const withAccount = useSignedInAction()
 
   if (club.isLoading) {
     return <div className="space-y-4"><Skeleton className="h-24" /><Skeleton className="h-40" /></div>
@@ -59,7 +61,7 @@ export default function ClubListing() {
       <section className="mt-10">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-bold">Recruiting</h2>
-          <Button variant="ghost" size="sm" icon={<Plus className="size-4" />} onClick={() => setSuggestRecruitment(true)}>Tell us</Button>
+          <Button variant="ghost" size="sm" icon={<Plus className="size-4" />} onClick={withAccount(() => setSuggestRecruitment(true))}>Tell us</Button>
         </div>
         {c.recruitments.length === 0 ? (
           <p className="rounded-lg border border-dashed border-line p-5 text-sm text-muted">
@@ -73,7 +75,7 @@ export default function ClubListing() {
       <section className="mt-10">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-bold">Upcoming events</h2>
-          <Button variant="ghost" size="sm" icon={<Plus className="size-4" />} onClick={() => setSuggestEvent(true)}>Suggest one</Button>
+          <Button variant="ghost" size="sm" icon={<Plus className="size-4" />} onClick={withAccount(() => setSuggestEvent(true))}>Suggest one</Button>
         </div>
         {c.events.length === 0 ? (
           <p className="rounded-lg border border-dashed border-line p-5 text-sm text-muted">

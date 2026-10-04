@@ -1,6 +1,6 @@
 import { lazy, Suspense, type ReactNode } from 'react'
 import { Spinner } from './components/ui'
-import { Navigate, Route, Routes, useLocation } from 'react-router'
+import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router'
 import { useSession } from './hooks/useAuth'
 import AppLayout from './layouts/AppLayout'
 import ClubLayout from './layouts/ClubLayout'
@@ -54,15 +54,19 @@ export default function App() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/verify/:slug/:id" element={<Verify />} />
 
-      <Route path="/app" element={<RequireAuth><AppLayout /></RequireAuth>}>
+      {/* the layout itself is public: browsing the campus directory needs no account */}
+      <Route path="/app" element={<AppLayout />}>
         <Route index element={<Home />} />
         <Route path="events" element={<WhatsOn />} />
         <Route path="clubs" element={<Clubs />} />
         <Route path="recruiting" element={<Recruiting />} />
         <Route path="directory/:slug" element={<ClubListing />} />
-        <Route path="moderation" element={<Moderation />} />
         {/* the old ClubHub-only directory: the campus directory covers every club now */}
         <Route path="explore" element={<Navigate to="/app/clubs" replace />} />
+
+        {/* everything below acts on a user or a workspace */}
+        <Route element={<RequireAuth><Outlet /></RequireAuth>}>
+        <Route path="moderation" element={<Moderation />} />
         <Route path="notifications" element={<Notifications />} />
         <Route path="platform" element={<Platform />} />
         <Route path="clubs/:slug/events/:eventId" element={<PublicEvent />} />
@@ -79,6 +83,7 @@ export default function App() {
           <Route path="members" element={<Members />} />
           <Route path="audit" element={<Audit />} />
           <Route path="settings" element={<Settings />} />
+        </Route>
         </Route>
       </Route>
 

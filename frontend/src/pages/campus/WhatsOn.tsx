@@ -4,6 +4,7 @@ import { CalendarDays, Plus, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { EventCard, EventFormModal } from '../../components/campus'
 import { Button, EmptyState, PageHeader, Skeleton } from '../../components/ui'
+import { useSignedInAction } from '../../hooks/useAuth'
 import { campus, when, type CampusEvent } from '../../lib/campus'
 
 const filters = ['All', 'Technical', 'Cultural', 'Sports', 'University'] as const
@@ -26,6 +27,7 @@ export default function WhatsOn() {
   const [filter, setFilter] = useState<Filter>('All')
   const [query, setQuery] = useState('')
   const [suggesting, setSuggesting] = useState(false)
+  const withAccount = useSignedInAction()
 
   const days = useMemo(() => {
     const groups = new Map<string, CampusEvent[]>()
@@ -43,7 +45,7 @@ export default function WhatsOn() {
         eyebrow="SRM KTR"
         title="What's on"
         description="Every club, department and university event in one place. Register on the organiser's own form."
-        actions={<Button variant="outline" icon={<Plus className="size-4" />} onClick={() => setSuggesting(true)}>Suggest an event</Button>}
+        actions={<Button variant="outline" icon={<Plus className="size-4" />} onClick={withAccount(() => setSuggesting(true))}>Suggest an event</Button>}
       />
 
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -78,7 +80,7 @@ export default function WhatsOn() {
         <EmptyState
           icon={<CalendarDays className="size-5" />}
           title={events.data.length === 0 ? 'Nothing listed yet' : 'No events match'}
-          action={<Button onClick={() => setSuggesting(true)}>Suggest an event</Button>}
+          action={<Button onClick={withAccount(() => setSuggesting(true))}>Suggest an event</Button>}
         >
           {events.data.length === 0
             ? 'Know about something coming up? Add it and everyone at SRM KTR will see it once it’s checked.'

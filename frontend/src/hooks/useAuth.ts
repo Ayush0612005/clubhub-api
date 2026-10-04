@@ -1,11 +1,26 @@
 import { useQuery } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
+import { useLocation, useNavigate } from 'react-router'
 import { api } from '../lib/api'
 import { session } from '../lib/session'
 import type { Me, MyClub } from '../lib/types'
 
 export function useSession() {
   return useSyncExternalStore(session.subscribe, session.get)
+}
+
+/**
+ * Wraps an action that needs an account: guests are sent to log in and brought back to
+ * the page they were on, instead of opening a form whose submit would 401.
+ */
+export function useSignedInAction() {
+  const signedIn = !!useSession()
+  const navigate = useNavigate()
+  const location = useLocation()
+  return (action: () => void) => () => {
+    if (signedIn) action()
+    else navigate('/login', { state: { from: location.pathname } })
+  }
 }
 
 export function useMe() {

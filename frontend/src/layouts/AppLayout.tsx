@@ -2,10 +2,10 @@ import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
 import { Bell, CalendarDays, Compass, House, Inbox, LogOut, Megaphone, Menu, Plus, ShieldCheck, X } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { Logo, ThemeToggle } from '../components/brand'
 import { Avatar, StatusBadge } from '../components/ui'
-import { useMe, useMyClubs } from '../hooks/useAuth'
+import { useMe, useMyClubs, useSession } from '../hooks/useAuth'
 import { useLiveNotifications } from '../hooks/useLiveNotifications'
 import { api, logout } from '../lib/api'
 
@@ -32,20 +32,25 @@ function Sidebar({ live, onNavigate }: { live: boolean; onNavigate?: () => void 
   const me = useMe()
   const clubs = useMyClubs()
   const navigate = useNavigate()
+  const location = useLocation()
+  const signedIn = !!useSession()
   const unread = useQuery({
     queryKey: ['notifications', 'unread'],
     queryFn: () => api.get<{ unread: number }>('/api/notifications/unread-count'),
     refetchInterval: 60_000,
+    enabled: signedIn,
   })
 
   return (
     <div className="flex h-full flex-col" onClick={(e) => (e.target as HTMLElement).closest('a') && onNavigate?.()}>
       <div className="flex items-center justify-between px-2 pt-1 pb-6">
         <Logo />
-        <span className="flex items-center gap-1.5 font-mono text-[10px] tracking-wider text-muted uppercase" title={live ? 'Live updates on' : 'Connecting…'}>
-          <span className={clsx('size-1.5 rounded-full', live ? 'bg-forest shadow-[0_0_0_3px_rgb(52_211_153/0.18)]' : 'bg-muted/50')} />
-          {live ? 'live' : '…'}
-        </span>
+        {signedIn && (
+          <span className="flex items-center gap-1.5 font-mono text-[10px] tracking-wider text-muted uppercase" title={live ? 'Live updates on' : 'Connecting…'}>
+            <span className={clsx('size-1.5 rounded-full', live ? 'bg-forest shadow-[0_0_0_3px_rgb(52_211_153/0.18)]' : 'bg-muted/50')} />
+            {live ? 'live' : '…'}
+          </span>
+        )}
       </div>
 
       <nav className="space-y-1">
@@ -53,7 +58,7 @@ function Sidebar({ live, onNavigate }: { live: boolean; onNavigate?: () => void 
         <NavItem to="/app/events" icon={<CalendarDays />}>What's on</NavItem>
         <NavItem to="/app/clubs" icon={<Compass />}>Clubs</NavItem>
         <NavItem to="/app/recruiting" icon={<Megaphone />}>Recruiting</NavItem>
-        <NavItem to="/app/notifications" icon={<Bell />} badge={unread.data?.unread}>Notifications</NavItem>
+        {signedIn && <NavItem to="/app/notifications" icon={<Bell />} badge={unread.data?.unread}>Notifications</NavItem>}
         {me.data?.platformAdmin && (
           <>
             <p className="px-3 pt-5 pb-1 font-mono text-[11px] tracking-[0.16em] text-muted uppercase">Admin</p>
@@ -93,6 +98,16 @@ function Sidebar({ live, onNavigate }: { live: boolean; onNavigate?: () => void 
         ))}
       </div>
 
+      {!signedIn ? (
+        <div className="mt-4 space-y-3 rounded-lg border border-line bg-surface p-3">
+          <p className="text-[13px] leading-snug text-muted">You're browsing as a guest. Sign in to suggest events and manage your clubs.</p>
+          <div className="flex items-center gap-2">
+            <Link to="/login" state={{ from: location.pathname }} className="flex-1 rounded-md bg-signal px-3 py-2 text-center text-sm font-semibold text-on-signal hover:opacity-90">Log in</Link>
+            <Link to="/register" className="flex-1 rounded-md border border-line px-3 py-2 text-center text-sm font-medium hover:bg-paper-2">Sign up</Link>
+            <ThemeToggle />
+          </div>
+        </div>
+      ) : (
       <div className="mt-4 flex items-center gap-3 rounded-lg border border-line bg-surface p-2.5">
         <Avatar name={me.data?.fullName ?? '…'} size={34} />
         <div className="min-w-0 flex-1">
@@ -111,6 +126,7 @@ function Sidebar({ live, onNavigate }: { live: boolean; onNavigate?: () => void 
           <LogOut className="size-[18px]" />
         </button>
       </div>
+      )}
     </div>
   )
 }
