@@ -3,7 +3,7 @@ import { ArrowRight, ArrowUpRight, Bell, CalendarDays, Megaphone } from 'lucide-
 import { Link } from 'react-router'
 import { EventCard, RecruitmentCard } from '../../components/campus'
 import { Avatar, ButtonLink, Card, EmptyState, PageHeader, Skeleton, StatusBadge } from '../../components/ui'
-import { useMe, useMyClubs } from '../../hooks/useAuth'
+import { useMe, useMyClubs, useSession } from '../../hooks/useAuth'
 import { api } from '../../lib/api'
 import { campus } from '../../lib/campus'
 import { fmt } from '../../lib/format'
@@ -24,6 +24,7 @@ function SectionTitle({ title, to, cta }: { title: string; to: string; cta: stri
 }
 
 export default function Home() {
+  const signedIn = !!useSession()
   const me = useMe()
   const clubs = useMyClubs()
   const events = useQuery({ queryKey: ['campus', 'events'], queryFn: campus.events })
@@ -31,6 +32,7 @@ export default function Home() {
   const recent = useQuery({
     queryKey: ['notifications', 'recent'],
     queryFn: () => api.get<Page<Notification>>('/api/notifications?size=5'),
+    enabled: signedIn,
   })
   const firstName = me.data?.fullName.split(' ')[0]
 
@@ -92,6 +94,7 @@ export default function Home() {
             </section>
           )}
 
+          {signedIn && (
           <section>
             <SectionTitle title="Latest" to="/app/notifications" cta="See all" />
             <Card className="divide-y divide-line">
@@ -114,6 +117,7 @@ export default function Home() {
               ))}
             </Card>
           </section>
+          )}
         </div>
       </div>
     </div>

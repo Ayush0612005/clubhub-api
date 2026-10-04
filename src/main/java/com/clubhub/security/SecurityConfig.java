@@ -35,6 +35,9 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/prometheus").permitAll()
                         // certificate verification links are printed on PDFs and opened by recruiters
                         .requestMatchers(HttpMethod.GET, "/api/verify/**").permitAll()
+                        // the campus directory is public to browse (approved content only);
+                        // suggesting something still needs an account (POST stays authenticated)
+                        .requestMatchers(HttpMethod.GET, "/api/campus/**").permitAll()
                         // WebSocket handshake can't carry a bearer header: STOMP CONNECT is authenticated
                         // instead (StompAuthInterceptor), so no frame is processed without a valid token
                         .requestMatchers(HttpMethod.GET, "/ws").permitAll()

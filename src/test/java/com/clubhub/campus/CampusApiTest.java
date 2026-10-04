@@ -131,6 +131,20 @@ class CampusApiTest {
     }
 
     @Test
+    void anyoneCanBrowseButSuggestingNeedsAnAccount() throws Exception {
+        mvc.perform(get("/api/campus/clubs")).andExpect(status().isOk());
+        mvc.perform(get("/api/campus/clubs/team-robocon")).andExpect(status().isOk());
+        mvc.perform(get("/api/campus/events")).andExpect(status().isOk());
+        mvc.perform(get("/api/campus/recruitments")).andExpect(status().isOk());
+
+        mvc.perform(post("/api/campus/suggestions/events")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(event(null, "Anonymous", inDays(2), null)))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/platform/campus/queue")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void studentsCannotModerate() throws Exception {
         mvc.perform(get("/api/platform/campus/queue").with(asUser(student))).andExpect(status().isForbidden());
         mvc.perform(post("/api/platform/campus/events").with(asUser(student))
