@@ -42,7 +42,7 @@ event you hold a ticket for, and certificates. Change anything; it resets every 
 ## Architecture
 
 ```mermaid
-flowchart LR
+flowchart TB
     U[React 19 SPA<br/>Vercel] -- "REST + JWT" --> F
     N -. "live push · STOMP over WebSocket" .-> U
     subgraph API["Spring Boot 4 API · Render"]
