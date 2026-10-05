@@ -106,6 +106,10 @@ always allowed as an exception.
 2. In Render, **Manual Deploy → Restart** once: the admin is promoted at startup. Log out and back in.
 3. **Platform** → **New club**. You are its admin; everything else works from the UI.
 
+The one-click demo needs no setup: the first **Try the live demo** click creates the sandbox club
+(slug `demo`) and its made-up people, and it rebuilds itself an hour after the last reset. Set
+`CLUBHUB_DEMO_ENABLED=false` to switch it off.
+
 Tip: a free uptime monitor (e.g. UptimeRobot, 5-minute checks on `/actuator/health`) keeps the Render
 instance awake during a demo or an event day. Render's 750 free hours cover one always-on service.
 
