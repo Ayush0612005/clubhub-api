@@ -1,5 +1,6 @@
 import { lazy, Suspense, type ReactNode } from 'react'
 import { Spinner } from './components/ui'
+import { WakingNotice } from './components/WakingNotice'
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router'
 import { useSession } from './hooks/useAuth'
 import AppLayout from './layouts/AppLayout'
@@ -44,6 +45,8 @@ function GuestOnly({ children }: { children: ReactNode }) {
 
 export default function App() {
   return (
+    <>
+    <WakingNotice />
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<GuestOnly><Login /></GuestOnly>} />
@@ -89,5 +92,6 @@ export default function App() {
 
       <Route path="*" element={<NotFound />} />
     </Routes>
+    </>
   )
 }

@@ -18,6 +18,65 @@ interface Options {
   auth?: boolean
 }
 
+// ---- cold starts
+// The free API host sleeps when idle; while it boots (~1-2 min) its proxy answers 502/503/504
+// or drops the connection. Instead of failing, wait and retry, and tell the UI we're waking it.
+
+const WAKE_STATUSES = new Set([502, 503, 504])
+const WAKE_BUDGET_MS = 150_000
+let waitingRequests = 0
+const wakeListeners = new Set<() => void>()
+
+function changeWaiting(delta: number) {
+  const before = waitingRequests > 0
+  waitingRequests += delta
+  if (before !== waitingRequests > 0) wakeListeners.forEach((fn) => fn())
+}
+
+/** For useSyncExternalStore: true while any request is waiting for the API to boot. */
+export const serverWaking = {
+  get: () => waitingRequests > 0,
+  subscribe(fn: () => void) {
+    wakeListeners.add(fn)
+    return () => {
+      wakeListeners.delete(fn)
+    }
+  },
+}
+
+async function fetchWaking(input: string, init: RequestInit, onWait: () => void): Promise<Response> {
+  const started = Date.now()
+  for (let attempt = 0; ; attempt++) {
+    let res: Response | undefined
+    try {
+      res = await fetch(input, init)
+      if (!WAKE_STATUSES.has(res.status)) return res
+    } catch (err) {
+      if (Date.now() - started > WAKE_BUDGET_MS) throw err
+    }
+    if (Date.now() - started > WAKE_BUDGET_MS) {
+      if (res) return res // give up: let the caller report the real status
+      throw new ApiError(503, 'The server is taking too long to start. Please try again in a minute.')
+    }
+    onWait()
+    await new Promise((r) => setTimeout(r, Math.min(2_000 + attempt * 1_000, 6_000)))
+  }
+}
+
+async function fetchApi(input: string, init: RequestInit): Promise<Response> {
+  let counted = false
+  try {
+    return await fetchWaking(input, init, () => {
+      if (!counted) {
+        counted = true
+        changeWaiting(1)
+      }
+    })
+  } finally {
+    if (counted) changeWaiting(-1)
+  }
+}
+
 let refreshing: Promise<boolean> | null = null
 
 /**
@@ -36,7 +95,7 @@ function refreshOnce(): Promise<boolean> {
 async function doRefresh(): Promise<boolean> {
   const current = session.get()
   if (!current) return false
-  const res = await fetch('/api/auth/refresh', {
+  const res = await fetchApi('/api/auth/refresh', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refreshToken: current.refreshToken, clubSlug: current.club?.slug ?? null }),
@@ -61,7 +120,7 @@ async function send(method: string, path: string, { body, auth = true }: Options
   const token = session.get()?.accessToken
   if (auth && token) headers.Authorization = `Bearer ${token}`
 
-  const res = await fetch(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) })
+  const res = await fetchApi(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) })
 
   if (res.status === 401 && auth && !retried && session.get()) {
     if (await refreshOnce()) return send(method, path, { body, auth }, true)
