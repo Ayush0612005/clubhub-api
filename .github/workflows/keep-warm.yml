@@ -1,8 +1,9 @@
 name: Keep API warm
 
-# Render's free tier spins the API down after 15 idle minutes, and a cold boot takes ~100 s.
-# Pinging every 10 minutes keeps one instance up (free plan: 750 instance-hours a month,
-# enough for a single always-on service). Public repos get unlimited Actions minutes.
+# Render's free tier spins the API down after 15 idle minutes. A cold boot (wake-up + ~100 s of
+# Spring startup on a 0.1 CPU instance) can take up to ~3 minutes, so each run waits up to 5 minutes
+# before calling the API down. GitHub runs scheduled jobs late under load, so this is a safety net:
+# the web app itself also waits through cold starts.
 on:
   schedule:
     - cron: '*/10 * * * *'
@@ -10,15 +11,16 @@ on:
 
 jobs:
   ping:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
     steps:
       - name: Ping health endpoint (waits through a cold start)
         run: |
-          for i in 1 2 3 4 5 6; do
-            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 https://clubhub-api-9sw2.onrender.com/actuator/health || true)
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 https://clubhub-api-9sw2.onrender.com/actuator/health || true)
             echo "attempt $i: HTTP $code"
             [ "$code" = "200" ] && exit 0
             sleep 15
           done
-          echo "API did not answer 200"; exit 1
+          echo "::error::API did not answer 200 within 5 minutes"
+          exit 1
